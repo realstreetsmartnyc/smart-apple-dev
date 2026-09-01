@@ -1,0 +1,42 @@
+# Firebase CocoaPods configuration for smart-apple-dev ObjC projects
+# Run: pod install (or use scripts/install_firebase_pods.sh)
+
+platform :ios, '15.0'
+
+target '{{NAME}}' do
+  use_frameworks!
+  
+  # Firebase Core and Analytics (required)
+  pod 'Firebase/Core', '~> 10.0'
+  pod 'FirebaseAnalytics', '~> 10.0'
+  
+  # Firebase products (uncomment based on your needs)
+  
+  # Authentication
+  # pod 'FirebaseAuth', '~> 10.0'
+  
+  # Firestore database
+  # pod 'FirebaseFirestore', '~> 10.0'
+  
+  # Storage
+  # pod 'FirebaseStorage', '~> 10.0'
+  
+  # Cloud Messaging
+  # pod 'FirebaseMessaging', '~> 10.0'
+  
+  # Dynamic Links
+  # pod 'FirebaseDynamicLinks', '~> 10.0'
+  
+  # Crashlytics
+  # pod 'Crashlytics', '~> 10.0'
+  
+  # Performance Monitoring
+  # pod 'FirebasePerformance', '~> 10.0'
+  
+  # Google Services (required)
+  pod 'GoogleServices', '~> 10.0'
+  
+  # Non-Firebase dependencies
+  # pod 'Alamofire', '~> 5.8'
+  # pod 'SVProgressHUD', '~> 2.0'
+end

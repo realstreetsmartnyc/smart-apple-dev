@@ -1,0 +1,26 @@
+[package]
+name = "{{NAME}}"
+version = "0.1.0"
+edition = "2021"
+
+# Firebase Rust bindings
+# Install via cargo: cargo add firebase
+# Or add manually from: https://github.com/firebase/firebase-rust
+
+[[bin]]
+name = "{{NAME}}"
+path = "src/main.rs"
+
+# Firebase dependencies
+# Option 1: Use firebase crate for Realtime Database
+firebase = "0.1.0"
+
+# Option 2: Use individual firebase crates
+# firebase-analytics = "0.1.0"
+# firebase-auth = "0.1.0"
+# firebase-firestore = "0.1.0"
+# firebase-storage = "0.1.0"
+# firebase-messaging = "0.1.0"
+
+# If not using Firebase directly, keep these as optional
+# Uncomment and add your Firebase SDK via FFI if needed
