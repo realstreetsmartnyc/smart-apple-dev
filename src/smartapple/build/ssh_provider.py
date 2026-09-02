@@ -9,7 +9,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import paramiko
+try:
+    import paramiko
+except ImportError:
+    paramiko = None  # type: ignore
 
 from .provider import BuildProvider, ProviderCapabilities, ProviderResult
 from ..core.config import ProjectConfig
@@ -54,7 +57,10 @@ class SSHProvider(BuildProvider):
 
         # Check for paramiko
         try:
-            import paramiko
+            try:
+    import paramiko
+except ImportError:
+    paramiko = None  # type: ignore
         except ImportError:
             return False, "paramiko not installed. Install with: pip install paramiko"
 
