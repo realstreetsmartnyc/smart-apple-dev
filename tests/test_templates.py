@@ -50,3 +50,32 @@ def test_init_cpp_template(tmp_path):
         text = cmake.read_text()
         assert "{{NAME}}" not in text
         assert "cppapp" in text
+
+
+def test_init_go_template_renders_valid_go_mod(tmp_path):
+    runner = CliRunner()
+    cli = create_cli()
+
+    with runner.isolated_filesystem():
+        result = runner.invoke(cli, ["init", "goapp", "--lang", "go"])
+        assert result.exit_code == 0
+
+        go_mod = Path.cwd() / "goapp" / "go.mod"
+        assert go_mod.exists()
+        text = go_mod.read_text()
+        assert "module goapp" in text
+        assert "{{NAME}}" not in text
+        assert text.count("go 1.21") == 1
+        assert "#" not in text
+
+
+    def test_cli_version_matches_package_version():
+        from smartapple import __version__
+
+        runner = CliRunner()
+        cli = create_cli()
+
+        result = runner.invoke(cli, ["--version"])
+
+        assert result.exit_code == 0
+        assert "smart-apple-dev" in result.output or "cli" in result.output

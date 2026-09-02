@@ -1,320 +1,280 @@
 # smart-apple-dev User Guide
 
-## Overview
+Complete CLI reference for `smart-apple-dev` v1.0.0.
 
-smart-apple-dev is a cross-platform (Linux/Windows) iOS/macOS development toolchain that lets you build, sign, install, and deploy iOS/macOS apps without needing a Mac. It wraps open-source tools (clang + LLD, xtool, ldid, cctools-port, libimobiledevice) and provides a unified CLI for the full pipeline.
+## Installation
 
-## Requirements
+```bash
+pip install smart-apple-dev
+# or isolated:
+pipx install smart-apple-dev
+```
 
-- **Linux or WSL2 on Windows**: Linux distributions (Ubuntu, Debian) or Windows Subsystem for Linux 2
-- **CMake**, **make**, **tar**, **curl**, **git** (required for Linux builds)
-- **clang** and **lld64.lld** (or `lld`) for C/C++/ObjC compilation
-- **xtool** for Swift builds (optional, auto-installable)
-- **ldid** for signing (optional, build from source on Linux)
-- **cctools-port** for codesign (optional, build from source)
-- **libimobiledevice** for iOS device communication (optional)
-- **Swift/Native toolchains** per language (optional, but needed for CI/testing)
+From source:
+
+```bash
+git clone https://github.com/smart-apple-dev/smart-apple-dev
+cd smart-apple-dev
+pip install -e ".[dev]"
+```
+
+**Requirements:** Python 3.11+
 
 ## Quick Start
 
-1. **Install**
-
-   ```bash
-   pip install smart-apple-dev
-   ```
-
-   Or from source:
-
-   ```bash
-   git clone https://github.com/smart-apple-dev/smart-apple-dev
-cd smart-apple-dev
-pip install -e ".[dev]"  # includes testing and linting tools
-   ```
-
-2. **Check your toolchain**
-
-   ```bash
-   smart-apple-dev doctor
-   ```
-
-   Follow any missing required tool hints. Optional tools (like `xtool`, `ldid`, `cctools`) can be auto-installed where supported.
-
-3. **Create a project**
-
-   ```bash
-   smart-apple-dev init my-app --lang objc
+```bash
+smart-apple-dev doctor              # diagnose
+smart-apple-dev init my-app --lang objc
 cd my-app
-   ```
-
-   Available languages: `swift`, `objc`, `cpp`, `rust`, `go`, `kotlin`. If you omit `--lang`, defaults to Swift.
-
-4. **Build**
-
-   ```bash
-   # macOS app (works on Linux with a MacOSX SDK)
-   smart-apple-dev build --target macos
-
-   # iOS/macOS app
-   smart-apple-dev build
-
-   # Release build
-   smart-apple-dev build --release
-   ```
-
-   Result: `build/ios/MyApp.app` (or `build/macos/MyApp.app`)
-
-5. **Sign (ad‑hoc or identity)**
-
-   ```bash
-   # Ad‑hoc signing (default, no certificate needed)
-   smart-apple-dev sign
-
-   # Identity signing (requires Apple Developer certificate + ldid)
-   smart-apple-dev sign --mode identity --identity "iPhone Developer: Your Name (ABC123)"
-   ```
-
-   `.ipa` packaging:
-
-   ```bash
-   smart-apple-dev sign --to-ipa
-   ```
-
-6. **Install to an iOS device**
-
-   ```bash
-   smart-apple-dev install --ipa my-app.ipa
-   ```
-
-   Requires a connected iOS device and libimobiledevice tools.
-
-7. **App Store Connect upload**
-
-   ```bash
-   smart-apple-dev store upload my-app.ipa --username you@example.com --password your-app-specific-password
-   smart-apple-dev store submit my-app --username you@example.com
-   ```
-
-   Requires Fastlane or altool installed.
-
-8. **Agent REPL**
-
-   ```bash
-   smart-apple-dev agent
-   ```
-
-   Enter commands like `build`, `sign`, `install`, `devices`, `info` — the agent can use an LLM provider (Anthropic, OpenAI, Ollama) or run deterministic plans (no API keys required).
-
-## Reference: All CLI Commands
-
-### smart-apple-dev init
-
-Scaffolds a new project.
-
-```
-smart-apple-dev init <name> [--lang swift|objc|cpp|rust|go|kotlin] [--bundle-id com.example.name]
+smart-apple-dev build --target macos
+smart-apple-dev sign --ipa          # → build/macos/my-app.ipa
 ```
 
-Creates:
-- `smartapple.toml` config
-- Language‑specific template (`.swift`, `.m`, `.cpp`, etc.)
-- `build/` directory structure
+## Commands
 
-### smart-apple-dev build
+### `smart-apple-dev init`
 
-Builds the project using the language‑specific backend.
+Scaffold a project from a language template.
 
-```
-smart-apple-dev build [--target ios|ios-simulator|macos|catalyst] [--release] [--provider local|ssh]
+```bash
+smart-apple-dev init <name> [--lang <lang>] [--bundle-id com.example.name]
 ```
 
-Output: `build/<target>/<name>.app` (Mach‑O bundle).
+Languages: `swift`, `objc`, `cpp`, `rust`, `go`, `kotlin`, plus experimental: `javascript`, `typescript`, `java`, `python`, `csharp`, `godot`, `unity`, `swiftui`, `watchos`, `tvos`, `visionos`, `macos`, `ios`, `metal`, `capacitor`, `expo`, `flutter`, `react-native`, `unreal`, `spritekit`, `scenekit`.
 
-### smart-apple-dev sign
+Output: `<name>/smartapple.toml` + language template.
 
-Signs a built `.app` bundle and optionally packages it as an `.ipa`.
+### `smart-apple-dev build`
 
+Build the project declared in `smartapple.toml`.
+
+```bash
+smart-apple-dev build [--target ios|ios-simulator|macos|catalyst] [--release] [--provider local|ssh|...]
 ```
-smart-apple-dev sign [--mode ad-hoc|identity|skip] [--identity <name>] [--profile <mobileprovision>]
-                    [--entitlements <plist>] [--ipa] [--target <target>]
+
+- `--target` — platform (default from `smartapple.toml`)
+- `--release` — optimized build
+- `--provider` — build provider (default: auto-detect, usually `local`)
+
+Output: `build/<target>/`
+
+### `smart-apple-dev sign`
+
+Sign a `.app` and optionally package as `.ipa`.
+
+```bash
+smart-apple-dev sign [--mode ad-hoc|identity|skip] [--identity <name>] [--profile <path>] [--entitlements <plist>] [--ipa] [--target <target>]
 ```
 
 Modes:
-- `ad‑hoc`: ldid/codesign with no certificate (no certs required)
-- `identity`: real Apple Developer certificate (requires `ldid` with cert)
-- `skip`: no signing (just package)
+- `ad-hoc` — ldid/codesign without Apple identity (default on Linux)
+- `identity` — Apple Developer identity (needs cert + provisioning profile)
+- `skip` — package only
 
-### smart-apple-dev install
+### `smart-apple-dev install`
 
-Builds + signs + packages + installs to a connected iOS device.
+Install an `.ipa` to a connected device.
 
+```bash
+smart-apple-dev install [--device <udid>] [--ipa <path>]
 ```
-smart-apple-dev install [--device <udid>] [--ipa <ipa>]
+
+Without `--ipa`, builds and signs first. Requires `libimobiledevice` on Linux.
+
+### `smart-apple-dev devices`
+
+List connected iOS devices.
+
+```bash
+smart-apple-dev devices
 ```
 
-If `--ipa` omitted, runs the full pipeline and installs via `ideviceinstaller`.
+### `smart-apple-dev info`
 
-### smart-apple-dev devices
+Show platform, project root, tools, and installed SDKs.
 
-Lists connected iOS devices (requires libimobiledevice).
-
-### smart-apple-dev info
-
-Shows system info, project root, SDK installation, and installed providers.
-
-### smart-apple-dev sdk
-
-SDK management:
-- `list`: shows installed SDKs
-- `install <platform> [--version <ver>]`: downloads a new SDK (iphoneos/macosx)
-- `extract --platform iphoneos --version 18.0`: on macOS, packages an SDK tarball that can be moved to Linux
-
-### smart-apple-dev provider
-
-Provider system:
-- `list`: shows registered providers and their availability
-- `default`: shows the currently selected provider
-
-Available providers:
-- `local`: runs everything on this machine (default)
-- `ssh`: runs on a remote Mac (requires paramiko and SSH access)
-
-### smart-apple-dev doctor
-
-Diagnoses missing required/optional tools. Auto‑install optional ones with `--install`.
-
-### smart-apple-dev check
-
-Per‑language backend availability check (which tools are missing for each language).
-
-### smart-apple-dev agent
-
-LLM‑driven orchestration with a toolbelt of 10 actions:
-
-| Tool | Description |
-|------|-------------|
-| build | Run the build pipeline for a project |
-| sign | Sign an existing .app or .ipa |
-| install | Install an .ipa to a device |
-| devices | List connected iOS devices |
-| sdk_list | List available SDKs |
-| read_file | Read any file in the project (helpful for debugging) |
-| write_file | Write a file in the project (e.g., to scaffold a new file) |
-| run_shell | Execute a shell command (security allowlist/blocklist) |
-| provider_list | List providers and their status |
-| ask_user | Ask for interactive user input (must be responded to before continuing) |
-
-The agent can be deterministic (`--provider none`) for reproducible automation, or use an LLM provider (Anthropic, OpenAI, Ollama). See `.env.example` for API key setup.
-
-### smart-apple-dev --version / --help
-
-Print version or show full CLI help.
-
-## File Layout (after init)
-
+```bash
+smart-apple-dev info
 ```
-my-app/
-├── smartapple.toml               # project config
-├── templates/                    # language‑specific starter files
-│   ├── objc/
-│   │   ├── main.m
-│   │   └── smartapple.toml
-│   ├── cpp/
-│   │   ├── main.cpp
-│   │   └── smartapple.toml
-│   └── ... (other languages)
-├── build/                        # output directory
-│   ├── ios/
-│   │   └── MyApp.app           # Mach‑O bundle (clang + LLD + SDK)
-│   └── macos/
-│       └── MyApp.app
-└── Makefile, CMakeLists.txt, etc.   # language‑specific build files
+
+### `smart-apple-dev sdk`
+
+Manage Apple SDKs.
+
+```bash
+smart-apple-dev sdk list
+smart-apple-dev sdk install --platform macosx --version 11.3
+smart-apple-dev sdk extract --platform iphoneos --version 18.0
 ```
+
+`extract` must run on macOS with Xcode; `install` works anywhere.
+
+### `smart-apple-dev doctor`
+
+Diagnose (and optionally auto-install) required tools.
+
+```bash
+smart-apple-dev doctor
+smart-apple-dev doctor --install
+```
+
+Checks: `clang`, `lld`/`ld`, `ldid`/`codesign`, SDKs, per-language toolchains.
+
+### `smart-apple-dev check`
+
+Show per-language backend availability.
+
+```bash
+smart-apple-dev check
+```
+
+### `smart-apple-dev provider`
+
+Inspect build providers.
+
+```bash
+smart-apple-dev provider list          # all 12 providers + status
+smart-apple-dev provider default       # current default
+
+# Named LLM provider instances
+smart-apple-dev provider add <base:label> [--base-url URL] [--api-key KEY] [--model NAME] [--description TEXT]
+smart-apple-dev provider del <base:label>
+smart-apple-dev provider list-instances
+```
+
+Examples:
+
+```bash
+smart-apple-dev provider add copilot:default --api-key $GITHUB_TOKEN
+smart-apple-dev provider add custom:openrouter --base-url https://openrouter.ai/api/v1 --api-key $OR_KEY --model anthropic/claude-3.5-sonnet
+smart-apple-dev provider add custom:venice --base-url https://api.venice.ai/api/v1 --api-key $VENICE_KEY
+```
+
+Instances are stored in `~/.smart-apple-dev/llm-providers.json`. API keys can use `${ENV_VAR}` references.
+
+### `smart-apple-dev agent`
+
+Run the LLM agent (one-shot or REPL).
+
+```bash
+# One-shot
+smart-apple-dev agent "build and sign this project"
+
+# With provider selection
+smart-apple-dev agent --provider anthropic "add a settings screen"
+smart-apple-dev agent --provider ollama "what's the build error?"
+smart-apple-dev agent --provider copilot:default "ship it"
+
+# List providers
+smart-apple-dev agent --provider list
+
+# Plan-based (deterministic, for CI/testing)
+smart-apple-dev agent --provider none --plan plan.json "build and sign"
+
+# REPL (no request → interactive)
+smart-apple-dev agent --provider openai
+```
+
+Options:
+- `--provider, -p` — LLM provider (`auto`, `list`, or `base:label`)
+- `--model` — override model
+- `--max-iterations` — max loop turns (default 15)
+- `--quiet` — less output
+- `--plan` — JSON plan for deterministic execution (with `--provider none`)
+
+The agent has 10 tools: `doctor`, `build`, `sign`, `install`, `sdk_list`, `read_file`, `write_file`, `run_shell`, `provider_list`, `ask_user`. Shell access has an allowlist/blocklist for safety.
+
+## Configuration
+
+### `smartapple.toml`
+
+Created by `init`, read by `build`/`sign`:
+
+```toml
+[project]
+name = "my-app"
+language = "objc"
+bundle_id = "com.example.my-app"
+version = "1.0.0"
+build_system = "swiftpm"
+min_os = "15.0"
+target = "ios"
+```
+
+### LLM Provider Config
+
+`~/.smart-apple-dev/llm-providers.json`:
+
+```json
+{
+  "instances": {
+    "copilot:default": {
+      "base_url": "https://api.githubcopilot.com",
+      "api_key": "${GITHUB_TOKEN}",
+      "default_model": "gpt-4o"
+    }
+  }
+}
+```
+
+### LLM Providers
+
+21 bases, each with env var for API key:
+
+| Base | Env var | Default model |
+|------|---------|---------------|
+| `anthropic` | `ANTHROPIC_API_KEY` | claude-3-5-sonnet |
+| `openai` | `OPENAI_API_KEY` | gpt-4o |
+| `groq` | `GROQ_API_KEY` | llama-3.3-70b |
+| `mistral` | `MISTRAL_API_KEY` | mistral-large |
+| `together` | `TOGETHER_API_KEY` | llama-3.3-70b |
+| `xai` | `XAI_API_KEY` | grok-2 |
+| `deepseek` | `DEEPSEEK_API_KEY` | deepseek-chat |
+| `perplexity` | `PERPLEXITY_API_KEY` | llama-3.1-sonar-large |
+| `copilot` | `GITHUB_TOKEN` | gpt-4o |
+| `gemini` | `GEMINI_API_KEY` | gemini-1.5-pro |
+| `opencode` | `OPENCODE_API_KEY` | — |
+| `nous` | `NOUS_API_KEY` | hermes-3 |
+| `sambanova` | `SAMBANOVA_API_KEY` | Meta-Llama-3.3-70B |
+| `cline` | `CLINE_API_KEY` | — |
+| `kilo` | `KILO_API_KEY` | — |
+| `gateway` | `GATEWAY_API_KEY` | — |
+| `minimax` | `MINIMAX_API_KEY` | minimax-text-01 |
+| `ollama` | `OLLAMA_URL` | llama3.2 |
+| `lmstudio` | `LMSTUDIO_URL` | — |
+| `custom` | `SMART_APPLE_CUSTOM_*` | — |
+| `none` | (no key) | — |
 
 ## Troubleshooting
 
-### “Error: click is required” / "Error: ldid not found”
+### No `smartapple.toml` found
+Run from a project directory, or `smart-apple-dev init <name>` first.
 
-Install missing optional tools with `smart-apple-dev doctor --install`. Required tools (clang, make, tar, curl, git) must be present in PATH.
-
-### “Error: No smartapple.toml found”
-
-Run `smart-apple-dev init <name>` inside the desired project directory.
-
-### “Error: SDK not installed”
-
-Run `smart-apple-dev sdk install macosx 11.3`. For iOS, extract on macOS (`smart-apple-dev sdk extract --platform iphoneos`) and move the tarball to Linux.
-
-### “Error: No signing tool found”
-
-Ad‑hoc signing works without `ldid`. For identity signing, you need `ldid`. Build from source on Linux:
-
+### SDK not installed
 ```bash
-git clone https://github.com/saurik/ldid.git
-cd ldid
-g++ -I . -o ldid ldid.cpp util.cpp -lcrypto -lpthread
-cp ldid ~/.smart-apple-dev/tools/ldid
-export PATH=$HOME/.smart-apple-dev/tools:$PATH
+smart-apple-dev sdk list
+smart-apple-dev sdk install --platform macosx --version 11.3
 ```
+For iOS SDKs: extract on a Mac with `sdk extract`, then copy the archive.
 
-### “Error: libimobiledevice not found”
+### No devices found
+Install `libimobiledevice` (`idevice_id -l` should list devices), trust the device.
 
-On Ubuntu/Debian: `sudo apt-get install libimobiledevice-dev usbmuxd`. May need additional kernel modules for USB communication.
+### Fastlane not found
+`pip install` doesn't include it — install Fastlane separately for `store/` helpers.
 
-### “Agent loop fails to call tools”
+### Build fails: "no such sysroot"
+Run `smart-apple-dev doctor` and `smart-apple-dev sdk list` to verify SDK path.
 
-Agent tools are CLI wrappers. Ensure the CLI command `smart-apple-dev` is in PATH after installation (`pip install smart-apple-dev`).
+## What Isn't Yet CLI
 
-### “Fastlane not found”
+- `store` — App Store Connect helpers exist as Python (`src/smartapple/store/`) but have no `smart-apple-dev store` command yet. Use the Python API or Fastlane directly.
+- `--json` output — commands print human-readable output today.
+- Structured logging — modules use `print()`; proper log levels are planned.
 
-Install Fastlane with `brew install fastlane` (macOS) or download from https://download.fastlane.tools. Fastlane is required for App Store Connect upload and submit.
+## See Also
 
-## Logging & Output
-
-By default, smart-apple-dev outputs human‑readable progress and results. Use `--json` to get machine‑parsable output (e.g., `smart-apple-dev build --json`).
-
-The `--quiet` flag silences thinking/tool output (agent mode) or suppresses warnings.
-
-## Environment Variables
-
-Copy `.env.example` to `.env` in your project root or home directory:
-
-```bash
-cp .env.example .env
-```
-
-Variables include LLM API keys, Fastlane credentials, and remote SSH access for the `ssh` provider.
-
-## Advanced: SSH provider
-
-Run builds on a remote Mac with SSH:
-
-```bash
-# First, on the remote Mac:
-#   mkdir -p ~/.ssh && ssh-keygen -t rsa -N "" && ssh-copy-id user@remote-mac
-#   sudo apt-get install clang lld make tar curl git cmake pkg-config
-#   sudo apt-get install lldcctools-port ldid
-
-# On Linux:
-smart-apple-dev init my-app --lang swift
-smart-apple-dev build --provider ssh --target macos
-```
-
-You need to set environment variables:
-
-```bash
-export SSH_HOST=remote-mac.local
-export SSH_USERNAME=user
-export SSH_KEY_PATH=~/.ssh/id_rsa
-```
-
-The `ssh` provider will auto‑install paramiko if missing (pip install paramiko).
-
-## Further Reading
-
-- [ARCHITECTURE.md](ARCHITECTURE.md) – design and component rationale
-- [MAP.md](MAP.md) – roadmap and decisions (D1‑D15)
-- GitHub repository: https://github.com/smart-apple-dev/smart-apple-dev
-
-## License
-
-MIT
+- [README.md](README.md) — overview + verified status
+- [ARCHITECTURE.md](ARCHITECTURE.md) — module map
+- [PUBLISH_PLAN.md](PUBLISH_PLAN.md) — release ledger
+- [PRICING.md](PRICING.md) — free vs paid

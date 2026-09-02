@@ -96,8 +96,12 @@ def test_provider_build_for_objc(tmp_path):
         pytest.skip("clang not available")
     if _find_mach_o_linker() is None:
         pytest.skip("ld64.lld not available")
-    if not any(s.platform == "macosx" for s in list_installed_sdks()):
+    macosx_sdks = [s for s in list_installed_sdks() if s.platform == "macosx"]
+    if not macosx_sdks:
         pytest.skip("No MacOSX SDK")
+    if not any((s.path / "System/Library/Frameworks/Foundation.framework/Headers/Foundation.h").exists()
+               for s in macosx_sdks):
+        pytest.skip("No usable MacOSX SDK with Foundation headers")
     
     # Set up a tiny ObjC project
     project = tmp_path / "ProvApp"

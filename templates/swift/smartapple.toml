@@ -1,8 +1,37 @@
 [project]
 name = "{{NAME}}"
-language = "swift"
+language = "{{LANGUAGE}}"
 bundle_id = "{{BUNDLE_ID}}"
 version = "0.1.0"
 build_system = "swiftpm"
 min_os = "15.0"
 target = "ios"
+platform = "ios"
+
+[platform.ios]
+deployment_target = "15.0"
+supported_devices = ["iphone", "ipad"]
+capabilities = []
+
+[platform.ios.permissions]
+camera = false
+photos = false
+location = false
+notifications = false
+
+[signing]
+team_id = ""
+provisioning_profile = ""
+signing_style = "automatic"
+
+[build]
+optimization_level = "auto"
+enable_testing = true
+enable_preview = true
+code_signing = true
+
+[ci]
+provider = "github-actions"
+platforms = ["ios", "macos"]
+auto_deploy = false
+test_on_simulator = true

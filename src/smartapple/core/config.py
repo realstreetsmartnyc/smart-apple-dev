@@ -22,7 +22,7 @@ class ProjectConfig:
     name: str = "my-app"
     language: str = "swift"
     bundle_id: str = "com.example.app"
-    version: str = "0.1.0"
+    version: str = "1.0.0"
     build_system: str = "swiftpm"
     min_os: str = "15.0"
     target: str = "ios"  # ios, macos, catalyst
@@ -44,7 +44,7 @@ class ProjectConfig:
             name=project.get("name", "my-app"),
             language=project.get("language", "swift"),
             bundle_id=project.get("bundle_id", "com.example.app"),
-            version=project.get("version", "0.1.0"),
+            version=project.get("version", "1.0.0"),
             build_system=project.get("build_system", "swiftpm"),
             min_os=project.get("min_os", "15.0"),
             target=project.get("target", "ios"),

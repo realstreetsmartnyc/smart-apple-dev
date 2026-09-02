@@ -1,0 +1,161 @@
+# Unity Project Template
+# Cross-platform game engine with iOS/macOS support
+
+PROJECT_NAME = "{{NAME}}"
+BUNDLE_ID = "{{BUNDLE_ID}}"
+VERSION = "0.1.0"
+TARGET = "{{TARGET}}"
+TARGET_PLATFORM = {{TARGET_PLATFORM | "UNITY_IOS"}}
+ENGINE = "unity"
+ENGINE_VERSION = "2023.1"
+
+# Unity Build Configuration
+UNITY = {
+    "version": "2023.1",
+    "build_target": "BuildTarget.iOS",
+    "architecture": "Architecture.Universal",
+    "development_build": {{DEVELOPMENT | "false"}},
+    "scripting_debugging": true,
+    "scripting_enable_debugger": true,
+    "scripting_enable_profiling": true,
+    "compression": "CompressionType.LZ4",
+    "strip_engine_code": true,
+    "strip_byte_code": true,
+    "enable_ecn": true,
+    "enable_exceptions": "Exceptations.ExplicitlyThrown",
+    "api_compatibility_level": "ApiCompatibilityLevel.NET_4_6",
+}
+
+# Graphics Settings
+GRAPHICS = {
+    "graphics_api": ["Vulkan", "OpenGLES3", "Metal"],
+    "render_pipeline": "{{RP_ACTIVE | "HDRP"}}",
+    "shader_model": "ShaderModel5",
+    "texture_resolution": "Full",
+    "anti_aliasing": "MSAA4x",
+    "v_sync_count": 0,
+    "target_frame_rate": 60,
+}
+
+# Platform-specific settings
+{% if TARGET == "ios" %}
+UNITY_BUILD_TARGET = "iOS"
+IOS_TARGET_OSVERSION = "15.0"
+IOS_ARCH = "ARMv7,ARM64"
+IOS_DEVICE_TARGET = "{{IOS_DEVICE_TARGET}}"
+IOS_SDK_VERSION = "{{IOS_SDK}}"
+{% elif TARGET == "macos" %}
+UNITY_BUILD_TARGET = "StandaloneOSX"
+MACOS_TARGET_VERSION = "10.14"
+MACOS_ARCH = "Apple Silicon"
+{% elif TARGET == "tvos" %}
+UNITY_BUILD_TARGET = "tvOS"
+TVOS_TARGET_OSVERSION = "15.0"
+{% elif TARGET == "android" %}
+UNITY_BUILD_TARGET = "Android"
+ANDROID_TARGET_API_LEVEL = 33
+ANDROID_MIN_API_LEVEL = 21
+{% endif %}
+
+# Scenes
+SCENES = [
+    "Assets/Scenes/MainMenu.unity",
+    "Assets/Scenes/Game.unity",
+    "Assets/Scenes/Loading.unity",
+]
+
+# Plugins & SDKs
+PLUGINS = {
+    "firebase": ["Analytics", "Crashlytics", "RemoteConfig", "Messaging"],
+    "unity_ads": "4.4.2",
+    "in_app_review": "2.2.2",
+    "in_app_purchase": "4.0.8",
+    "mobile_notification": "1.1.0",
+}
+
+# Build Pipeline
+BUILD_PIPELINE = {
+    "build_number": "{{BUILD_NUMBER}}",
+    "version_code": "{{VERSION_CODE}}",
+    "version_name": "{{VERSION}}",
+    "bundle_version_code": "{{VERSION_CODE}}",
+    "bundle_version": "{{VERSION}}",
+}
+
+# Testing Configuration
+TESTING = {
+    "framework": "UnityTest",
+    "play_mode_tests": true,
+    "edit_mode_tests": true,
+    "performance_benchmarking": true,
+    "unity_test_runner": true,
+    "test_coverage": true,
+}
+
+# CI/CD Configuration
+CI = {
+    "provider": "github-actions",
+    "unity_license": true,
+    "build_targets": ["ios", "android", "webgl", "macos"],
+    "test_on_device": true,
+    "auto_deploy": false,
+    "fastlane_integration": true,
+}
+
+# Analytics
+ANALYTICS = {
+    "enable": true,
+    "platforms": ["firebase", "game_analytics", "custom"],
+    "metrics": ["session_length", "revenue", "retention", "engagement"],
+}
+
+# Monetization
+MONETIZATION = {
+    "type": ["ads", "iap"],
+    "ad_networks": ["unity_ads", "admob", "applovin"],
+    "iap_product_ids": ["com.{{NAME}}.remove_ads", "com.{{NAME}}.coins_100"],
+}
+
+# Optimization
+OPTIMIZATION = {
+    "texture_compression": ["ASTC", "ETC2", "PVRTC"],
+    "level_of_detail": true,
+    "occlusion_culling": true,
+    "dynamic_batching": true,
+    "static_batching": true,
+    "gpu_instancing": true,
+}
+
+# Audio
+AUDIO = {
+    "sample_rate": 48000,
+    "compression_format": "Vorbis",
+    "quality": 0.7,
+    "load_type": "DecompressOnLoad",
+    "streaming": false,
+}
+
+# Memory
+MEMORY = {
+    "target_fps": 60,
+    "garbage_collector_threshold": 0.45,
+    "scripting_heap_size": 128,
+    "managed_starter_profiling": true,
+}
+
+# Build Output
+BUILD_OUTPUT = {
+    "output_path": "../Build/{{NAME}}.app",
+    "ipa_output_path": "../Build/{{NAME}}.ipa",
+    "build_app_bundle_id": "{{BUNDLE_ID}}",
+}
+
+# Xcode Integration
+XCODE = {
+    "team_id": "{{TEAM_ID}}",
+    "provisioning_profile": "{{PROVISIONING_PROFILE}}",
+    "signing_enabled": true,
+    "signing_style": "automatic",
+    "frameworks": ["UnityFramework"],
+    "capabilities": ["game_center", "push_notifications", "com.apple.developer.icloud-services"],
+}

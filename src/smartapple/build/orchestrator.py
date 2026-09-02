@@ -88,30 +88,50 @@ class BuildOrchestrator:
             "objc": "objc",
             "objective-c": "objc",
             "objective_c": "objc",
+            "objectivec": "objc",
             "c": "cpp",
             "c++": "cpp",
             "cpp": "cpp",
+            "objective-cpp": "cpp",
             "rust": "rust",
             "go": "go",
             "kotlin": "kotlin",
+            "java": "java",
+            "python": "python",
+            "javascript": "javascript",
+            "typescript": "typescript",
+            "csharp": "csharp",
+            "cs": "csharp",
+            "crystal": "crystal",
+            "d": "d",
         }
         return mapping.get(language.lower(), language.lower())
 
     def _create_backend(self, name: str, config: ProjectConfig):
         """Create a backend instance by name."""
         from .swift import SwiftBackend
+        from .objc import ObjCBackend
         from .cpp import CppBackend
         from .rust import RustBackend
         from .go import GoBackend
         from .kotlin import KotlinBackend
+        from .java import JavaBackend
+        from .python import PythonBackend
+        from .javascript import JavaScriptBackend
+        from .csharp import CSharpBackend
 
         backends = {
             "swift": SwiftBackend,
-            "objc": CppBackend,
+            "objc": ObjCBackend,
             "cpp": CppBackend,
             "rust": RustBackend,
             "go": GoBackend,
             "kotlin": KotlinBackend,
+            "java": JavaBackend,
+            "python": PythonBackend,
+            "javascript": JavaScriptBackend,
+            "typescript": JavaScriptBackend,
+            "csharp": CSharpBackend,
         }
         cls = backends.get(name)
         if cls is None:
@@ -120,7 +140,10 @@ class BuildOrchestrator:
 
     def list_backends(self) -> list[str]:
         """List available backend names."""
-        return ["swift", "objc", "cpp", "rust", "go", "kotlin"]
+        return [
+            "swift", "objc", "cpp", "rust", "go", "kotlin",
+            "java", "python", "javascript", "typescript", "csharp",
+        ]
 
     def check_backend_availability(self, language: str) -> dict[str, Any]:
         """Check if a backend is available on this system."""
@@ -145,4 +168,9 @@ class BuildOrchestrator:
             "rust": {"cargo": ["cargo"], "rustc": ["rustc"]},
             "go": {"go": ["go"]},
             "kotlin": {"kotlin": ["kotlinc", "kotlin-native"]},
+            "java": {"java": ["java"], "ant": ["ant"], "gradle": ["gradlew"]},
+            "python": {"python": ["python3", "python"]},
+            "javascript": {"node": ["node"], "npm": ["npm"]},
+            "typescript": {"typescript": ["tsc"]},
+            "csharp": {"dotnet": ["dotnet"], "msbuild": ["msbuild"]},
         }.get(backend, {})

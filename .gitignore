@@ -62,3 +62,9 @@ Thumbs.db
 
 # Orca
 .orca/
+
+# Firebase / Google secrets — never commit
+GoogleService-Info.plist
+google-services.json
+google-services*.json
+.env

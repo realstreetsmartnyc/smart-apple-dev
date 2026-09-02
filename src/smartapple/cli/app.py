@@ -29,7 +29,7 @@ def create_cli():
     click = _get_click()
 
     @click.group()
-    @click.version_option(version="0.1.0")
+    @click.version_option(version="1.0.0")
     def cli():
         """smart-apple-dev: Cross-platform iOS/macOS development toolchain."""
         pass
@@ -400,8 +400,7 @@ target = "ios"
     @cli.command()
     @click.argument("request", required=False)
     @click.option("--provider", "-p", default="auto",
-                  type=click.Choice(["auto", "none", "anthropic", "openai", "ollama"]),
-                  help="LLM provider")
+                  help="LLM provider (use 'auto', 'list', or 'base:label' like 'copilot:backup')")
     @click.option("--model", "-m", default=None, help="Model name override")
     @click.option("--max-iterations", default=15, help="Max agent loop iterations")
     @click.option("--quiet", "-q", is_flag=True, help="Don't show thinking/tool output")
@@ -413,15 +412,51 @@ target = "ios"
         Without REQUEST: starts an interactive REPL.
 
         The agent can build, sign, install, and deploy iOS/macOS apps
-        using a toolbelt of CLI commands. By default it uses the first
-        available LLM provider (Ollama, Anthropic, OpenAI).
-        Use --provider none for a deterministic scripted run.
+        using a toolbelt of CLI commands. Supports 21 LLM providers:
+          Local (no key):    ollama, lmstudio
+          Cloud (API key):   anthropic, openai, gemini, copilot, groq,
+                             mistral, together, xai, deepseek, perplexity,
+                             sambanova, opencode, nous, cline, kilo, minimax
+          Configurable:      custom, gateway
+          Testing:           none (deterministic plan-based runs)
+
+        Named instances: Configure multiple instances of the same provider.
+          Example: --provider copilot:backup or --provider custom:venice
+          Use: smart-apple-dev provider add <name>
         """
         from ..agent.loop import (
-            run_agent, run_agent_with_provider_plan, AgentConfig
+            run_agent, run_agent_with_provider_plan, AgentConfig,
+            _set_active_provider_override, _clear_active_provider_override,
+        )
+        from ..agent.llm import (
+            make_provider_from_instance, list_example_instances, list_named_instances,
+            _PROVIDERS,
         )
         from ..agent.tools import get_tools
         from pathlib import Path as _P
+
+        # Handle --provider list
+        if provider == "list":
+            _print_provider_list()
+            return
+
+        # Resolve named instance if specified (e.g. "copilot:backup", "custom:venice")
+        configured_instance = None
+        if ":" in provider:
+            configured_instance = make_provider_from_instance(provider)
+            if configured_instance is None:
+                print(f"Error: Named provider '{provider}' not configured.")
+                print()
+                print("Available named instances:")
+                for inst in sorted(list_named_instances().keys()):
+                    print(f"  - {inst}")
+                if not list_named_instances():
+                    print("  (none configured yet)")
+                print()
+                print("Examples you can add:")
+                for name, cfg in sorted(list_example_instances().items()):
+                    print(f"  {name:<25} {cfg.get('description', '')}")
+                sys.exit(1)
 
         cfg = AgentConfig(
             max_iterations=max_iterations,
@@ -430,6 +465,10 @@ target = "ios"
             provider_name=provider,
             model=model,
         )
+
+        # If we have a configured named instance, set the override
+        if configured_instance is not None:
+            _set_active_provider_override(configured_instance)
 
         if plan:
             plan_path = _P(plan)
@@ -472,6 +511,9 @@ target = "ios"
                 print()
                 print(f"[done in {result.iterations} iterations, {result.tool_calls_made} tool calls]")
 
+        # Clear override
+        _clear_active_provider_override()
+
         # Print final summary
         if not result.success:
             print(f"\\n[error] {result.final_message}")
@@ -484,10 +526,192 @@ target = "ios"
             print(f"  tool calls: {result.tool_calls_made}")
             print(f"  tokens:     {result.tokens_used}")
 
+    # ---- LLM provider named-instance management ----
+    # These commands are for LLM providers (not build providers).
+    # They manage ~/.smart-apple-dev/llm-providers.json
+
+    def _print_provider_list() -> None:
+        """Print all LLM providers with their named instances in a hierarchy."""
+        from ..agent.llm import (
+            list_providers, get_provider_class, list_models_for, KNOWN_MODELS,
+            auto_select_provider, list_providers_grouped, list_named_instances,
+            list_example_instances, get_instance_config, _resolve_env_ref,
+            _PROVIDERS,
+        )
+        auto_p = auto_select_provider()
+        grouped = list_providers_grouped()
+
+        print("Available LLM providers:")
+        print()
+
+        seen_bases = set()
+        for base_name in list_providers_grouped().keys():
+            if ":" in base_name and not _PROVIDERS.get(base_name.split(":", 1)[0]):
+                continue
+            if base_name in seen_bases:
+                continue
+            seen_bases.add(base_name)
+
+            items = grouped[base_name]
+            cls = get_provider_class(base_name)
+            try:
+                inst = cls()
+                available, reason = inst.is_available()
+                status = "[+] available" if available else f"[-] {reason[:30]}"
+                model = cls.default_model or "(none)"
+                base = inst.base_url or "-"
+                auto_mark = " *" if base_name == auto_p.name else ""
+                print(f"  {base_name:<18}{auto_mark:<3} {status}")
+                if model:
+                    print(f"  {'':<18}    model: {model}")
+                if base != "-":
+                    print(f"  {'':<18}    url:   {base}")
+            except Exception as e:
+                print(f"  {base_name:<18}  [-] error: {e}")
+
+            for item in items[1:]:
+                cfg = get_instance_config(item) or {}
+                label = item.split(":", 1)[1] if ":" in item else item
+                desc = cfg.get("description", "")
+                model = cfg.get("default_model", "")
+                base_url = cfg.get("base_url", "")
+                api_key_ref = cfg.get("api_key", "")
+                resolved = _resolve_env_ref(api_key_ref) if api_key_ref else ""
+                has_key = bool(resolved and resolved != api_key_ref)
+                key_status = "[+]" if has_key else "[-]"
+                print(f"    [LABEL] {label:<15} {desc}")
+                if model:
+                    print(f"           {'':<15} model: {model}")
+                if base_url:
+                    print(f"           {'':<15} url:   {base_url}")
+                print(f"           {'':<15} key:   {key_status} {api_key_ref}")
+            print()
+
+        print(f"  [*] = auto-selected ({auto_p.name})")
+        print()
+        print("Named instance syntax: --provider 'base:label' (e.g. 'custom:venice', 'copilot:backup')")
+        print()
+        print(f"Models for {auto_p.name}:")
+        models = list_models_for(auto_p.name, base_url=auto_p.base_url)
+        if models:
+            for m in models[:15]:
+                print(f"  - {m}")
+            if len(models) > 15:
+                print(f"  ... and {len(models)-15} more")
+        else:
+            known = KNOWN_MODELS.get(auto_p.name, [])
+            if known:
+                print(f"  (from known list: {', '.join(known[:5])})")
+        examples = list_example_instances()
+        if examples:
+            print()
+            print("Example instances you can add with --provider-add:")
+            for name, cfg in examples.items():
+                print(f"  {name:<25} {cfg.get('description', '')}")
+
+    @provider.command(name="add")
+    @click.argument("name")
+    @click.option("--base-url", default=None, help="API base URL (e.g. https://api.venice.ai/v1)")
+    @click.option("--api-key", default=None, help="API key (or ${ENV_VAR} to reference an env var)")
+    @click.option("--model", default=None, help="Default model")
+    @click.option("--description", default="", help="Description of this instance")
+    def provider_add(name, base_url, api_key, model, description):
+        """Add a named LLM provider instance.
+
+        NAME is 'base:label', e.g.:
+          copilot:default   (a Copilot instance named 'default')
+          copilot:backup    (another Copilot instance)
+          custom:venice     (Venice.ai as a custom provider)
+          custom:openrouter (OpenRouter as custom)
+
+        After adding, use it with:
+          smart-apple-dev agent --provider '{name}'
+        """
+        from ..agent.llm import (
+            set_instance_config, list_example_instances, get_provider_class, _PROVIDERS,
+            list_named_instances,
+        )
+        if ":" not in name:
+            print("Error: NAME must include a ':' separator (e.g. 'copilot:default')")
+            print("  Format: base:label  where base is the provider class and label is your name")
+            sys.exit(1)
+        base, label = name.split(":", 1)
+        if base not in _PROVIDERS:
+            print(f"Error: Unknown base provider '{base}'.")
+            print(f"  Available: {', '.join(sorted(_PROVIDERS.keys()))}")
+            sys.exit(1)
+        existing = list_named_instances()
+        if name in existing:
+            print(f"Warning: '{name}' already exists. Updating.")
+            existing_cfg = existing[name]
+        else:
+            existing_cfg = {}
+        cfg = dict(existing_cfg)
+        if base_url:
+            cfg["base_url"] = base_url
+        elif not cfg.get("base_url"):
+            example = list_example_instances().get(name)
+            if example:
+                cfg["base_url"] = example.get("base_url", "")
+            else:
+                print(f"Error: --base-url is required for new instance '{name}'")
+                sys.exit(1)
+        if api_key:
+            cfg["api_key"] = api_key
+        if model:
+            cfg["default_model"] = model
+        if description:
+            cfg["description"] = description
+        set_instance_config(name, cfg)
+        print(f"Saved: {name}")
+        print(f"  base:  {base}")
+        print(f"  label: {label}")
+        print(f"  url:   {cfg.get('base_url', '')}")
+        print(f"  key:   {cfg.get('api_key', '')}")
+        print(f"  model: {cfg.get('default_model', '')}")
+        print()
+        print(f"Use: smart-apple-dev agent --provider '{name}'")
+
+    @provider.command(name="del")
+    @click.argument("name")
+    def provider_del(name):
+        """Delete a named LLM provider instance.
+
+        Example:
+          smart-apple-dev provider del copilot:backup
+        """
+        from ..agent.llm import delete_instance_config, list_named_instances
+        instances = list_named_instances()
+        if name not in instances:
+            print(f"Error: '{name}' not found.")
+            print(f"  Available: {', '.join(sorted(instances.keys()))}")
+            sys.exit(1)
+        delete_instance_config(name)
+        print(f"Deleted: {name}")
+
+    @provider.command(name="list-instances")
+    def provider_list_instances():
+        """List all named LLM provider instances."""
+        from ..agent.llm import list_named_instances, get_instance_config
+        instances = list_named_instances()
+        if not instances:
+            print("No named instances configured.")
+            print("  Use: smart-apple-dev provider add <name>")
+            return
+        for inst_name, cfg in sorted(instances.items()):
+            print(f"  {inst_name}")
+            for k, v in cfg.items():
+                print(f"    {k}: {v}")
+            print()
+
+    # ---- LLM provider list in agent command ----
+    # Update agent's provider list option
+    # (done by updating the click.Choice below)
+
     return cli
 
-
 def cli(args=None):
+
     """Entry point. Called by the console script and by tests."""
     if args is not None:
         import sys as _sys

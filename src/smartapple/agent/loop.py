@@ -34,6 +34,27 @@ from .tools import (
 )
 
 
+# ============================================================
+# Thread-local / global provider override for named instances
+# ============================================================
+# When a CLI user selects a named instance (e.g. "copilot:default"),
+# we set this so _resolve_provider() uses it instead of auto-selecting.
+
+_active_provider_override: LLMProvider | None = None
+
+
+def _set_active_provider_override(provider: LLMProvider) -> None:
+    """Set the active provider override (e.g. for named instances like 'copilot:default')."""
+    global _active_provider_override
+    _active_provider_override = provider
+
+
+def _clear_active_provider_override() -> None:
+    """Clear the active provider override."""
+    global _active_provider_override
+    _active_provider_override = None
+
+
 SYSTEM_PROMPT = """You are smart-apple-dev, an agent that helps developers build, sign, install, and deploy iOS and macOS apps from Linux and Windows.
 
 You have access to tools. Use them to:
@@ -154,8 +175,22 @@ def add_memory_note(memory_path: Path, note: str) -> None:
 # ============================================================
 
 def _resolve_provider(config: AgentConfig) -> LLMProvider:
+    # Check for active named instance override first (e.g. "copilot:default")
+    if _active_provider_override is not None:
+        # If a specific model was requested, override the instance's default
+        if config.model:
+            _active_provider_override.model = config.model
+        return _active_provider_override
     if config.provider_name == "auto":
         return auto_select_provider()
+    # Handle named instance syntax in provider_name (e.g. "custom:venice")
+    if ":" in config.provider_name:
+        from .llm import make_provider_from_instance
+        instance = make_provider_from_instance(config.provider_name)
+        if instance is not None:
+            if config.model:
+                instance.model = config.model
+            return instance
     cls = get_provider_class(config.provider_name)
     if cls is None:
         raise ValueError(f"Unknown provider: {config.provider_name}. Available: {list_providers()}")
@@ -389,14 +424,18 @@ def _run_with_none_provider(plan: list[dict], config: AgentConfig) -> AgentResul
             _print(msg.content, prefix="[agent]")
 
         if not msg.tool_calls:
-            return AgentResult(
-                success=True,
-                final_message=msg.content,
-                iterations=iterations,
-                messages=messages,
-                tool_calls_made=tool_calls_made,
-                tokens_used=tokens_used,
-            )
+            # Check if signaling completion (NoneProvider is exhausted)
+            if "Plan complete" in (msg.content or ""):
+                return AgentResult(
+                    success=True,
+                    final_message=msg.content or "Plan complete",
+                    iterations=iterations,
+                    messages=messages,
+                    tool_calls_made=tool_calls_made,
+                    tokens_used=tokens_used,
+                )
+            # Otherwise it's just a message step from the plan; continue the loop
+            continue
 
         messages.append(msg)
         plan_step += 1

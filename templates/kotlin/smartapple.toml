@@ -1,8 +1,99 @@
-[project]
-name = "{{NAME}}"
-language = "kotlin"
-bundle_id = "{{BUNDLE_ID}}"
-version = "0.1.0"
-build_system = "gradle"
-min_os = "15.0"
-target = "ios"
+# Kotlin/Native Project Template
+# iOS app development with Kotlin Multiplatform
+
+PROJECT_NAME = "{{NAME}}"
+BUNDLE_ID = "{{BUNDLE_ID}}"
+VERSION = "0.1.0"
+MIN_OS = "15.0"
+TARGET = "{{TARGET}}"
+LANGUAGE = "kotlin"
+
+# Gradle Configuration
+GRADLE_VERSION = "8.0"
+KOTLIN_VERSION = "1.9.0"
+
+# Kotlin Targets
+{% if TARGET == "ios" %}
+IOS_TARGET = "iosArm64"
+IOS_SIM_TARGET = "iosX64"
+IOS_DEPLOYMENT_TARGET = "15.0"
+{% elif TARGET == "macos" %}
+MACOS_TARGET = "macosArm64"
+MACOS_X64_TARGET = "macosX64"
+MACOS_DEPLOYMENT_TARGET = "12.0"
+{% elif TARGET == "tvos" %}
+TVOS_TARGET = "tvosArm64"
+TVOS_SIM_TARGET = "tvosX64"
+{% elif TARGET == "watchos" %}
+WATCHOS_TARGET = "watchosArm64"
+WATCHOS_SIM_TARGET = "watchosX64"
+{% endif %}
+
+# Build Modes
+{% if RELEASE %}
+BUILD_TYPE = "release"
+KOTLIN_BINARY_RELEASE = true
+{% else %}
+BUILD_TYPE = "debug"
+KOTLIN_BINARY_RELEASE = false
+{% endif %}
+
+# Kotlin Multiplatform Modules
+KMP_MODULES = [
+    "shared",     # Common code
+    "iosApp",     # iOS application
+    "androidApp", # Android application (optional)
+]
+
+# CocoaPods Integration
+COCOAPODS = {
+    "pod_name": "{{NAME}}",
+    "version": "0.1.0",
+    "summary": "Kotlin Multiplatform library",
+    "homepage": "https://github.com/your/repo",
+    "license": "MIT",
+    "authors": "Your Name <your@email.com>",
+    "source": {
+        "git": "https://github.com/your/repo.git",
+        "tag": "v{{VERSION}}"
+    },
+    "platforms": {
+        "ios": "15.0",
+    },
+}
+
+# Dependencies
+DEPENDENCIES = [
+    {{
+      "org.jetbrains.kotlinx", "kotlinx-coroutines-core", "1.7.3"
+    }},
+    {{
+      "org.jetbrains.kotlinx", "kotlinx-serialization-json", "1.5.1"
+    }},
+    {{
+      "org.jetbrains.kotlinx", "kotlinx-datetime", "0.4.1"
+    }},
+]
+
+# Testing
+TESTING = {
+    "framework": "kotlin-test",
+    "unit_tests": true,
+    "integration_tests": true,
+    "coverage": true,
+    "frameworks": ["xctest", "junit"],
+}
+
+# Platform-specific resources
+IOS_RESOURCES = [
+    "Assets.xcassets",
+    "Info.plist",
+]
+
+# CI/CD Configuration
+CI = {
+    "provider": "github-actions",
+    "test_on_simulator": true,
+    "auto_deploy": false,
+    "gradle_cache": true,
+}

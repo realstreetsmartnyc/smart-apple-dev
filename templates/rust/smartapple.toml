@@ -1,8 +1,83 @@
-[project]
-name = "{{NAME}}"
-language = "rust"
-bundle_id = "{{BUNDLE_ID}}"
-version = "0.1.0"
-build_system = "cargo"
-min_os = "15.0"
-target = "ios"
+# Rust Project Template
+# Cross-platform with Apple Silicon support
+
+PROJECT_NAME = "{{NAME}}"
+BUNDLE_ID = "{{BUNDLE_ID}}"
+VERSION = "0.1.0"
+MIN_OS = "15.0"
+TARGET = "{{TARGET}}"
+LANGUAGE = "rust"
+
+# Build Configuration
+PROFILE = "{{PROFILE}}"  # debug, release, minimal
+
+# Target Triples
+{% if TARGET == "ios" %}
+IOS_TARGET = "aarch64-apple-ios"
+IOS_SIM_TARGET = "x86_64-apple-ios-simulator"
+{% elif TARGET == "macos" %}
+MACOS_TARGET = "aarch64-apple-darwin"
+MACOS_X64_TARGET = "x86_64-apple-darwin"
+{% elif TARGET == "tvos" %}
+TVOS_TARGET = "aarch64-apple-tvos"
+{% elif TARGET == "watchos" %}
+WATCHOS_TARGET = "aarch64-apple-watchos"
+{% endif %}
+
+# Cargo Settings
+CARGO_PROFILE = {
+    "opt-level": "{{OPT_LEVEL}}",  # 0 (debug), 1 (test), 2 (release), "s" (size), "z" (crash opts)
+    "lto": "{{LTO}}",  # true, false
+    "codegen-units": "{{CODEGEN_UNITS}}",  # 1 (release), "auto"
+}
+
+# Features
+FEATURES = [
+    "std",     # Standard library
+    "core",    # Core library only
+]
+
+# Optional features
+OPTIONAL_FEATURES = [
+    "async-std",
+    "tokio",
+    "serde",
+]
+
+# Platform-specific settings
+{% if TARGET == "ios" %}
+IOS_FEATURES = [
+    "floating-point-emu",
+    "appletv-sim",
+]
+{% elif TARGET == "macos" %}
+MACOS_FEATURES = []
+{% endif %}
+
+# Dependencies
+DEPENDENCIES = [
+    {{
+      url = "https://github.com/...")
+]},
+
+# Build Targets
+BUILD_TARGETS = [
+    {{
+      name = "{{NAME}}"
+      target = "{{IOS_TARGET}}"
+    }}]
+]
+
+# Testing
+TESTING = {
+    "framework": "cargo-test",
+    "unit_tests": true,
+    "integration_tests": true,
+    "coverage": true,
+}
+
+# Profiling
+PROFILING = {
+    "tools": ["perf", "rr", "heaptrack"],
+    "enable": true,
+}
