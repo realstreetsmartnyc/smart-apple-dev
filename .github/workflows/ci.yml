@@ -36,10 +36,12 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Lint with ruff
-        run: ruff check src/ tests/ || echo "lint: $(ruff check src/ tests/ 2>&1 | grep -c 'Found') errors (non-blocking)"
+        run: |
+          ruff check src/ tests/ || echo "lint non-blocking"
 
       - name: Type check with mypy
-        run: mypy src/ || echo "mypy issues (non-blocking)"
+        run: |
+          mypy src/ || echo "mypy non-blocking"
 
       - name: Run tests
         run: pytest tests/ -v --cov=src/smartapple --cov-report=term --cov-report=xml
