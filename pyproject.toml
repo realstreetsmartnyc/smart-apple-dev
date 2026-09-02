@@ -52,10 +52,10 @@ dev = [
 smart-apple-dev = "smartapple.cli.app:cli"
 
 [project.urls]
-Homepage = "https://github.com/smart-apple-dev/smart-apple-dev"
-Repository = "https://github.com/smart-apple-dev/smart-apple-dev"
-Documentation = "https://github.com/smart-apple-dev/smart-apple-dev/blob/main/USER_GUIDE.md"
-Issues = "https://github.com/smart-apple-dev/smart-apple-dev/issues"
+Homepage = "https://github.com/realstreetsmartnyc/smart-apple-dev"
+Repository = "https://github.com/realstreetsmartnyc/smart-apple-dev"
+Documentation = "https://github.com/realstreetsmartnyc/smart-apple-dev/blob/main/USER_GUIDE.md"
+Issues = "https://github.com/realstreetsmartnyc/smart-apple-dev/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

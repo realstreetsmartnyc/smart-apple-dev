@@ -2,7 +2,7 @@
 
 Cross-platform Apple development CLI — scaffold, build, sign, and ship iOS/macOS apps from **Linux, Windows/WSL, or macOS**. No Mac required for most workflows.
 
-[![CI](https://github.com/smart-apple-dev/smart-apple-dev/actions/workflows/ci.yml/badge.svg)](https://github.com/smart-apple-dev/smart-apple-dev/actions/workflows/ci.yml)
+[![CI](https://github.com/realstreetsmartnyc/smart-apple-dev/actions/workflows/ci.yml/badge.svg)](https://github.com/realstreetsmartnyc/smart-apple-dev/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/smart-apple-dev.svg)](https://pypi.org/project/smart-apple-dev/)
 [![Python](https://img.shields.io/pypi/pyversions/smart-apple-dev.svg)](https://pypi.org/project/smart-apple-dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -195,7 +195,7 @@ See [USER_GUIDE.md](USER_GUIDE.md) for full flag reference.
 ## Development
 
 ```bash
-git clone https://github.com/smart-apple-dev/smart-apple-dev
+git clone https://github.com/realstreetsmartnyc/smart-apple-dev
 cd smart-apple-dev
 pip install -e ".[dev]"
 python3 -m pytest -q          # 108 tests
