@@ -56,12 +56,7 @@ class SSHProvider(BuildProvider):
             return False, "SSH host not configured. Set --host or SSH_HOST environment variable."
 
         # Check for paramiko
-        try:
-            try:
-    import paramiko
-except ImportError:
-    paramiko = None  # type: ignore
-        except ImportError:
+        if paramiko is None:
             return False, "paramiko not installed. Install with: pip install paramiko"
 
         # Validate we have auth method

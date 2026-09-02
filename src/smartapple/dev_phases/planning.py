@@ -779,14 +779,16 @@ class FrameworkDetector:
     def _generate_xcode_plist(self, frameworks: dict[str, Any]) -> str:
         """Generate xcode.plist with framework settings."""
         enabled_frameworks = [fw for fw, enabled in frameworks.items() if enabled]
+        libs = "\n".join(f"        <string>{fw}</string>" for fw in enabled_frameworks)
+        if libs:
+            libs += "\n"
         return f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>AvailableLibraries</key>
     <array>
-{"".join(f"        <string>{fw}</string>\\n" for fw in enabled_frameworks)}
-    </array>
+{libs}    </array>
     <key>RequiredDeviceCapabilities</key>
     <array>
         <string>arm64</string>
@@ -802,6 +804,9 @@ class FrameworkDetector:
         if frameworks.get("swiftui"):
             dependencies.append('.package(url: "https://github.com/SwiftUI/Xcode", from: "1.0.0")')
 
+        deps = "\n".join(f"        {dep}" for dep in dependencies)
+        if deps:
+            deps += "\n"
         return f"""// swift-tools-version:5.5
 import PackageDescription
 
@@ -814,8 +819,7 @@ let package = Package(
             targets: ["{self.project_dir.name}"]),
     ],
     dependencies: [
-        {"".join(f"        {dep}\\n" for dep in dependencies)},
-    ],
+{deps}    ],
     targets: [
         .target(
             name: "{self.project_dir.name}",
