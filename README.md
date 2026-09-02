@@ -1,5 +1,7 @@
 # smart-apple-dev
 
+<p align="center"><img src="docs/banner.svg" width="640" alt="smart-apple-dev banner"/></p>
+
 Cross-platform Apple development CLI — scaffold, build, sign, and ship iOS/macOS apps from **Linux, Windows/WSL, or macOS**. No Mac required for most workflows.
 
 [![CI](https://github.com/realstreetsmartnyc/smart-apple-dev/actions/workflows/ci.yml/badge.svg)](https://github.com/realstreetsmartnyc/smart-apple-dev/actions/workflows/ci.yml)
