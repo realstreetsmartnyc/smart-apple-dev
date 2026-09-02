@@ -66,6 +66,9 @@ target-version = "py311"
 select = ["E", "F", "I", "N", "W", "UP", "RUF"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401", "F811", "E402", "I001", "W293", "N806"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["smartapple"]
 
