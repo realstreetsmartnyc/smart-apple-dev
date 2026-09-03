@@ -18,6 +18,7 @@
 #   ./verify.sh --lang objc,cpp  # only test specific languages
 
 set -uo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ---------- Configuration ----------
 SAD_HOME="${SAD_HOME:-$HOME/.smart-apple-dev}"
@@ -428,12 +429,12 @@ EOF
                 # otherwise fall back to Kotlin/Native.
                 if [[ -n "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}" ]] && command -v java >/dev/null 2>&1; then
                     step "  kotlin: Android path (delegating to verify-android.sh)"
-                    if [[ -x "$SCRIPT_DIR/verify-android.sh" ]]; then
+                    if [[ -x "${SCRIPT_DIR:-.}/verify-android.sh" ]]; then
                         # Pass through the install-mode flag
                         if [[ "$USE_LOCAL" == "1" ]]; then
-                            "$SCRIPT_DIR/verify-android.sh" --local --skip-sdk
+                            "${SCRIPT_DIR:-.}/verify-android.sh" --local --skip-sdk
                         else
-                            "$SCRIPT_DIR/verify-android.sh" --skip-sdk
+                            "${SCRIPT_DIR:-.}/verify-android.sh" --skip-sdk
                         fi
                     else
                         warn "kotlin" "verify-android.sh not found or not executable"
