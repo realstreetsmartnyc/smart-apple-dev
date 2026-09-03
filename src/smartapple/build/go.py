@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import plistlib
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -56,6 +58,36 @@ class GoBackend:
         artifact = project_dir / "build" / target / config.name
         if not artifact.exists():
             artifact = None
+
+        # Wrap raw Mach-O binary in a .app bundle for macOS targets
+        if exit_code == 0 and artifact and artifact.is_file() and goos == "darwin":
+            try:
+                app_dir = project_dir / "build" / target / f"{config.name}.app"
+                contents_dir = app_dir / "Contents" / "MacOS"
+                contents_dir.mkdir(parents=True, exist_ok=True)
+                bundle_bin = contents_dir / config.name
+                shutil.copy2(artifact, bundle_bin)
+                os.chmod(bundle_bin, 0o755)
+                plist = {
+                    "CFBundleDevelopmentRegion": "en",
+                    "CFBundleExecutable": config.name,
+                    "CFBundleIdentifier": config.bundle_id,
+                    "CFBundleInfoDictionaryVersion": "6.0",
+                    "CFBundleName": config.name,
+                    "CFBundleDisplayName": config.name,
+                    "CFBundlePackageType": "APPL",
+                    "CFBundleShortVersionString": config.version,
+                    "CFBundleVersion": "1",
+                    "LSMinimumSystemVersion": "11.0",
+                    "NSHighResolutionCapable": True,
+                    "NSPrincipalClass": "NSApplication",
+                }
+                with open(app_dir / "Contents" / "Info.plist", "wb") as fp:
+                    plistlib.dump(plist, fp)
+                (app_dir / "Contents" / "PkgInfo").write_bytes(b"APPL????")
+                artifact = app_dir
+            except Exception:
+                pass
 
         return BuildResult(
             success=exit_code == 0,

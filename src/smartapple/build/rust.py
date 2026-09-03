@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import plistlib
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -46,12 +48,58 @@ class RustBackend:
                 language="rust",
             )
 
+        # For Apple targets on Linux: point rustc at our clang + SDK + ld64.lld
+        env_overrides = dict(os.environ)
+        if target_triple.endswith("-apple-darwin") or target_triple.endswith("-apple-ios"):
+            sdk_path = os.environ.get("SDKROOT")
+            if sdk_path is None:
+                try:
+                    from ..core.sdk import list_installed_sdks
+                    sdks = list_installed_sdks()
+                    for s in sdks:
+                        if s.platform == "macosx":
+                            sdk_path = str(s.path)
+                            break
+                except Exception:
+                    sdk_path = None
+            clang = check_tool("clang")
+            ld64 = check_tool("ld64.lld") or check_tool("ld.lld")
+            # Determine arch for link args
+            arch = "arm64" if "aarch64" in target_triple else "x86_64"
+            triple = f"{arch}-apple-darwin" if "darwin" in target_triple else f"{arch}-apple-ios"
+            # Build RUSTFLAGS that wire clang as linker and ld64.lld as backend
+            rustflags = []
+            if sdk_path and clang and ld64:
+                ld64_dir = os.path.dirname(ld64)
+                rustflags = [
+                    f"-Clink-arg=-fuse-ld={ld64}",
+                    f"-Clink-arg=-B{ld64_dir}",
+                    f"-Clink-arg=--target={triple}",
+                    f"-Clink-arg=-isysroot",
+                    f"-Clink-arg={sdk_path}",
+                    f"-Clink-arg=-mmacosx-version-min=11.0",
+                    "-Clink-arg=-Wl,-arch",
+                    f"-Clink-arg=-Wl,{arch}",
+                    "-Clink-arg=-Wl,-platform_version",
+                    "-Clink-arg=-Wl,macos",
+                    "-Clink-arg=-Wl,11.0",
+                    "-Clink-arg=-Wl,11.3",
+                ]
+                env_overrides[f"CARGO_TARGET_{target_triple.upper().replace('-','_')}_LINKER"] = clang
+            env_key = f"CARGO_TARGET_{target_triple.upper().replace('-','_')}_RUSTFLAGS"
+            existing = env_overrides.get(env_key, "")
+            if existing:
+                rustflags = [existing] + rustflags
+            env_overrides[env_key] = " ".join(rustflags)
+            if sdk_path:
+                env_overrides["SDKROOT"] = sdk_path
+
         cmd = [cargo, "build"]
         if release:
             cmd.append("--release")
         cmd.extend(["--target", target_triple])
 
-        exit_code, stdout, stderr = run_cmd(cmd, cwd=project_dir)
+        exit_code, stdout, stderr = run_cmd(cmd, cwd=project_dir, env=env_overrides)
 
         # Find artifact
         artifact = None
@@ -66,6 +114,39 @@ class RustBackend:
                 if binary.is_file() and os.access(binary, os.X_OK):
                     artifact = binary
                     break
+
+        # If building for macOS, wrap the Mach-O binary in a .app bundle
+        # so the sign command can find it.
+        if exit_code == 0 and artifact and target_triple.endswith("-apple-darwin"):
+            try:
+                app_dir = project_dir / "build" / "macos" / f"{config.name}.app"
+                contents_dir = app_dir / "Contents" / "MacOS"
+                contents_dir.mkdir(parents=True, exist_ok=True)
+                bundle_bin = contents_dir / config.name
+                shutil.copy2(artifact, bundle_bin)
+                os.chmod(bundle_bin, 0o755)
+                # Write Info.plist
+                plist = {
+                    "CFBundleDevelopmentRegion": "en",
+                    "CFBundleExecutable": config.name,
+                    "CFBundleIdentifier": config.bundle_id,
+                    "CFBundleInfoDictionaryVersion": "6.0",
+                    "CFBundleName": config.name,
+                    "CFBundleDisplayName": config.name,
+                    "CFBundlePackageType": "APPL",
+                    "CFBundleShortVersionString": config.version,
+                    "CFBundleVersion": "1",
+                    "LSMinimumSystemVersion": "11.0",
+                    "NSHighResolutionCapable": True,
+                    "NSPrincipalClass": "NSApplication",
+                }
+                with open(app_dir / "Contents" / "Info.plist", "wb") as fp:
+                    plistlib.dump(plist, fp)
+                (app_dir / "Contents" / "PkgInfo").write_bytes(b"APPL????")
+                artifact = app_dir
+            except Exception as e:
+                # Non-fatal; signing will fail but the raw binary still exists.
+                pass
 
         return BuildResult(
             success=exit_code == 0,
