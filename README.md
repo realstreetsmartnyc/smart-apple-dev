@@ -10,7 +10,8 @@ Cross-platform Apple development CLI — scaffold, build, sign, and ship iOS/mac
 [![PyPI](https://img.shields.io/pypi/v/smart-apple-dev.svg)](https://pypi.org/project/smart-apple-dev/)
 [![Python](https://img.shields.io/pypi/pyversions/smart-apple-dev.svg)](https://pypi.org/project/smart-apple-dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-136%20passing-brightgreen)](#)
+[![Tests](https://img.shields.io/badge/tests-147%20passing-brightgreen)](#)
+[![Docs](https://img.shields.io/badge/docs-mkdocs--material-blue)](https://realstreetsmartnyc.github.io/smart-apple-dev/)
 
 > **Status: v1.0.0 — public beta.** Core pipeline verified on Linux. See [Verified Status](#verified-status) for what works today.
 
@@ -260,13 +261,43 @@ See [USER_GUIDE.md](USER_GUIDE.md) for full flag reference.
 git clone https://github.com/realstreetsmartnyc/smart-apple-dev
 cd smart-apple-dev
 pip install -e ".[dev]"
-python3 -m pytest -q          # 108 tests
+python3 -m pytest -q          # 147 tests
 ruff check src/ tests/        # lint
 mypy src/                     # types
 smart-apple-dev doctor        # system check
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## Verifying your install
+
+Run the end-to-end smoke test on a fresh machine:
+
+```bash
+./verify/verify.sh                # full iOS/macOS E2E
+./verify/verify-android.sh        # Android E2E (assembleDebug + adb install)
+./verify/verify.sh --local        # test your local checkout
+```
+
+What it does:
+
+- Detects platform (Linux / WSL2 / macOS)
+- Installs missing system tools (`clang`, `lld`, `cmake`, …)
+- Builds `ldid` from source
+- Downloads + extracts the macOS SDK if missing
+- Installs `smart-apple-dev` (from PyPI or local `./`)
+- For each language: `init → build → sign → ipa`
+- Prints a PASS/FAIL table; non-zero exit on any failure
+
+The same logic runs on every push via [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+plus a dedicated [Android job](.github/workflows/ci.yml).
+
+## Examples
+
+| Example | What | Build |
+|---------|------|-------|
+| [`examples/hello-objc/`](examples/hello-objc/) | Objective-C macOS app | `smart-apple-dev build --target macos` |
+| [`examples/hello-kotlin/`](examples/hello-kotlin/) | KMP app → Android APK + iOS binary | `smart-apple-dev build --target android` |
 
 ## Pricing
 
@@ -280,6 +311,8 @@ Paid services are opt-in (see [PRICING.md](PRICING.md)):
 
 ## Documentation
 
+Full docs site: [realstreetsmartnyc.github.io/smart-apple-dev](https://realstreetsmartnyc.github.io/smart-apple-dev/)
+
 | Doc | What |
 |-----|------|
 | [PUBLISH_PLAN.md](PUBLISH_PLAN.md) | Release readiness ledger |
@@ -290,6 +323,7 @@ Paid services are opt-in (see [PRICING.md](PRICING.md)):
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Dev setup |
 | [SECURITY.md](SECURITY.md) | Vulnerability reporting |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community |
+| [docs/](docs/) | MkDocs source for the site above |
 
 ## License
 

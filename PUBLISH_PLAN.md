@@ -20,15 +20,21 @@
 | Type check | ✅ 0 errors | mypy passes |
 | CI | ✅ Configured | GitHub Actions, Python 3.11/3.12/3.13, lint+type+test |
 | PyPI publish | ✅ Configured | via `gh-action-pypi-publish` on tag |
-| License | ❌ Missing | needs MIT LICENSE file |
-| GitHub remote | ❌ Not set | no origin remote |
-| SECURITY.md | ❌ Missing | need vulnerability disclosure policy |
-| CODE_OF_CONDUCT | ❌ Missing | community standard |
-| Issue templates | ❌ Missing | need bug/feature/question |
-| Screenshot/GIF | ❌ Missing | need marketing assets |
-| Landing page | ❌ Missing | need docs site or GitHub Pages |
+| License | ✅ MIT | full text in `LICENSE` |
+| GitHub remote | ✅ set | `realstreetsmartnyc/smart-apple-dev` |
+| SECURITY.md | ✅ present | vulnerability disclosure policy |
+| CODE_OF_CONDUCT | ✅ present | Contributor Covenant v2.1 |
+| Issue templates | ✅ present | bug/feature/question + PR template |
+| Screenshot/GIF | ✅ present | `docs/banner.svg` + `docs/banner-android.svg` |
+| Landing page | ✅ present | MkDocs site at `realstreetsmartnyc.github.io/smart-apple-dev` |
 | Version sync | ✅ 1.0.0 | aligned across pyproject.toml, __init__.py, cli/app.py |
-| Real device install | ⚠️  Limited | needs libimobiledevice on Linux |
+| Real device install | ⚠️  Limited | iOS: libimobiledevice on Linux; Android: adb |
+| Android build target | ✅ | Kotlin template → APK via `./gradlew assembleDebug` |
+| Android device install | ✅ | adb wrapper, fake-shim in `verify-android.sh` |
+| Verify scripts | ✅ | `verify/verify.sh` + `verify/verify-android.sh` |
+| Example projects | ✅ | `examples/hello-objc/` + `examples/hello-kotlin/` |
+| Release workflow | ✅ | `.github/workflows/release.yml` (tag-triggered) |
+| Docs deploy workflow | ✅ | `.github/workflows/docs.yml` (GitHub Pages) |
 
 ---
 

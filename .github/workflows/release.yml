@@ -1,0 +1,70 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v1.0.0)"
+        required: true
+
+permissions:
+  contents: write  # create the GitHub Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="${{ inputs.tag }}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Version: ${TAG}"
+
+      - name: Extract changelog entry for this version
+        id: notes
+        run: |
+          python3 - <<'PY'
+          import re, pathlib, sys
+          tag = "${{ steps.tag.outputs.tag }}"
+          text = pathlib.Path("CHANGELOG.md").read_text()
+          # Match the heading for this version, e.g. "## [1.0.0] - 2026-09-03"
+          pat = re.compile(
+              r"^##\s*\[" + re.escape(tag.lstrip("v")) + r"\][^\n]*\n(.*?)(?=^##\s|\Z)",
+              re.M | re.S,
+          )
+          m = pat.search(text)
+          notes = (m.group(1).strip() if m else
+                    "See [CHANGELOG.md](https://github.com/realstreetsmartnyc/smart-apple-dev/blob/main/CHANGELOG.md).")
+          pathlib.Path("release_notes.md").write_text(notes)
+          print("Wrote release_notes.md (" + str(len(notes)) + " bytes)")
+          PY
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: smart-apple-dev ${{ steps.tag.outputs.tag }}
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(steps.tag.outputs.tag, '-rc') || contains(steps.tag.outputs.tag, '-alpha') || contains(steps.tag.outputs.tag, '-beta') }}
+          # Attach artifacts produced by the `publish` job in ci.yml
+          # (ci.yml runs first via the same tag push; if it hasn't, the
+          # release still ships without assets).
+          fail_on_unmatched_files: false
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            examples/hello-objc/hello-objc
+            examples/hello-kotlin/build/outputs/apk/debug/*.apk

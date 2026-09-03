@@ -423,10 +423,25 @@ EOF
                 fi
                 ;;
             kotlin)
-                if command -v kotlinc >/dev/null 2>&1; then
+                # Kotlin can build for iOS/macOS (Kotlin/Native) or Android.
+                # If ANDROID_HOME is set, run the dedicated Android path;
+                # otherwise fall back to Kotlin/Native.
+                if [[ -n "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}" ]] && command -v java >/dev/null 2>&1; then
+                    step "  kotlin: Android path (delegating to verify-android.sh)"
+                    if [[ -x "$SCRIPT_DIR/verify-android.sh" ]]; then
+                        # Pass through the install-mode flag
+                        if [[ "$USE_LOCAL" == "1" ]]; then
+                            "$SCRIPT_DIR/verify-android.sh" --local --skip-sdk
+                        else
+                            "$SCRIPT_DIR/verify-android.sh" --skip-sdk
+                        fi
+                    else
+                        warn "kotlin" "verify-android.sh not found or not executable"
+                    fi
+                elif command -v kotlinc >/dev/null 2>&1; then
                     test_language kotlin
                 else
-                    warn "kotlin" "kotlinc not installed; skipping"
+                    warn "kotlin" "no Android SDK and no kotlinc; skipping"
                 fi
                 ;;
             *) warn "$lang" "unknown language" ;;

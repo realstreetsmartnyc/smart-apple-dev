@@ -149,3 +149,39 @@ class TestKotlinTemplateStructure:
         assert "com.android.application" in text
         assert "org.jetbrains.kotlin.multiplatform" in text
         assert "{{NAME}}" in text  # placeholder must be rendered by `init`
+
+
+class TestExampleProjects:
+    """Static checks for the hand-shipped examples under examples/.
+
+    These are what users clone / copy to start their own project, so they
+    must render correctly without re-running `init`.
+    """
+
+    def test_hello_objc_has_readme(self):
+        assert (TEMPLATES.parent / "examples" / "hello-objc" / "README.md").exists()
+
+    def test_hello_kotlin_has_readme(self):
+        assert (TEMPLATES.parent / "examples" / "hello-kotlin" / "README.md").exists()
+
+    def test_hello_kotlin_has_no_placeholders(self):
+        """Shipped example must have all {{NAME}} and {{BUNDLE_ID}} already rendered."""
+        root = TEMPLATES.parent / "examples" / "hello-kotlin"
+        for path in root.rglob("*"):
+            if not path.is_file():
+                continue
+            if path.suffix in (".png", ".jpg", ".jar", ".json"):
+                continue  # google-services.json may contain literal {{...}} patterns
+            text = path.read_text()
+            for placeholder in ("{{NAME}}", "{{BUNDLE_ID}}"):
+                assert placeholder not in text, (
+                    f"{path} still contains {placeholder} — render before shipping"
+                )
+
+    def test_hello_kotlin_smartapple_toml_is_valid(self):
+        import tomllib
+        toml_path = TEMPLATES.parent / "examples" / "hello-kotlin" / "smartapple.toml"
+        data = tomllib.loads(toml_path.read_text())
+        assert data["project"]["language"] == "kotlin"
+        assert data["project"]["target"] == "android"
+        assert data["project"]["name"] == "hello-kotlin"

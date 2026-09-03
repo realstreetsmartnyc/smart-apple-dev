@@ -288,3 +288,8 @@ Run `smart-apple-dev doctor` and `smart-apple-dev sdk list` to verify SDK path.
 - [ARCHITECTURE.md](ARCHITECTURE.md) — module map
 - [PUBLISH_PLAN.md](PUBLISH_PLAN.md) — release ledger
 - [PRICING.md](PRICING.md) — free vs paid
+- [verify/verify.sh](verify/verify.sh) — end-to-end smoke test
+- [verify/verify-android.sh](verify/verify-android.sh) — Android-specific smoke test
+- [examples/hello-objc/](examples/hello-objc/) — Objective-C example
+- [examples/hello-kotlin/](examples/hello-kotlin/) — Kotlin Multiplatform example
+- [docs/](docs/) — MkDocs source for the documentation site

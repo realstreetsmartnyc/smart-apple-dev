@@ -1,0 +1,98 @@
+site_name: smart-apple-dev
+site_description: Cross-platform iOS/macOS/Android development CLI — no Mac required
+site_url: https://realstreetsmartnyc.github.io/smart-apple-dev/
+repo_url: https://github.com/realstreetsmartnyc/smart-apple-dev
+repo_name: realstreetsmartnyc/smart-apple-dev
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+    - content.action.edit
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: installation.md
+      - Quickstart: quickstart.md
+      - Verifying: verifying.md
+  - Platforms:
+      - iOS / macOS: ios-macos.md
+      - Android: android.md
+      - Linux / WSL: linux-wsl.md
+      - Windows: windows.md
+  - Languages: languages.md
+  - Build providers: providers.md
+  - LLM agent: llm-providers.md
+  - Reference:
+      - Commands: commands.md
+      - CI integration: ci-integration.md
+  - About:
+      - FAQ: faq.md
+      - Architecture: architecture.md
+      - Pricing: pricing.md
+      - Changelog: changelog.md
+      - Contributing: contributing.md
+
+plugins:
+  - search
+  - autorefs
+  - awesome-nav
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+  - pymdownx.caret
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/realstreetsmartnyc/smart-apple-dev
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/smart-apple-dev/
+  generator: false
+
+copyright: Copyright &copy; 2026 realstreetsmartnyc
