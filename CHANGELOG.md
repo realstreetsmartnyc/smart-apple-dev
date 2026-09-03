@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Firebase integration templates
 - GitHub Actions CI (Python 3.11/3.12/3.13, ruff, mypy, pytest, coverage)
 - PyPI publish workflow on version tags
+- **`android` build target** for the Kotlin template (assembles debug/release APK via `./gradlew assembleDebug` / `assembleRelease`; auto-locates the APK under `build/outputs/apk/`)
+- **Android device install** via `adb` (`list_android_devices`, `install_apk`); `devices --platform android|all` enumerates phones and emulators
+- **`install` command** now accepts `--apk <path>` and `--platform ios|android|auto`
+- **Android CI job** in `.github/workflows/ci.yml` — installs JDK 17 + Android cmdline-tools, builds the Kotlin template's debug APK on Ubuntu, and verifies the artifact contains `AndroidManifest.xml`
 
 ### Fixed
 - Template rendering: `module {{NAME}}` in Go, recursive `{{BUNDLE_ID}}` substitution

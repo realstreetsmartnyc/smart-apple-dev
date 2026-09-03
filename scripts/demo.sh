@@ -41,3 +41,18 @@ ls -lh build/macos/*.ipa 2>/dev/null || ls -lh build/macos/ 2>/dev/null | head -
 echo ""
 echo "Demo done. IPA at: $TMPDIR/hello/build/macos/hello.ipa"
 echo "Clean up: rm -rf $TMPDIR"
+
+# Optional: Android path (only if ANDROID_HOME is set and --target android was requested)
+if [ "${SMART_DEMO_ANDROID:-0}" = "1" ] && [ -n "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}" ]; then
+  echo ""
+  echo "--- 6. Android build (Kotlin) ---"
+  TMPDIR2=$(mktemp -d)
+  cd "$TMPDIR2"
+  run_cli init hello-kt --lang kotlin || true
+  if [ -d hello-kt ]; then
+    cd hello-kt
+    run_cli build --target android 2>&1 | tail -20 || true
+    ls -lh build/outputs/apk/debug/ 2>/dev/null | head -10 || true
+    echo "Clean up: rm -rf $TMPDIR2"
+  fi
+fi

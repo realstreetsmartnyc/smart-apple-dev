@@ -49,14 +49,20 @@ Output: `<name>/smartapple.toml` + language template.
 Build the project declared in `smartapple.toml`.
 
 ```bash
-smart-apple-dev build [--target ios|ios-simulator|macos|catalyst] [--release] [--provider local|ssh|...]
+smart-apple-dev build [--target ios|ios-simulator|macos|catalyst|android] [--release] [--provider local|ssh|...]
 ```
 
 - `--target` — platform (default from `smartapple.toml`)
 - `--release` — optimized build
 - `--provider` — build provider (default: auto-detect, usually `local`)
 
-Output: `build/<target>/`
+Output: `build/<target>/` for Apple targets; for `--target android`, the APK is written to
+`<project>/build/outputs/apk/<debug|release>/`.
+
+**Android prerequisites:** JDK 17+ and the Android SDK with `platforms;android-34` and
+`build-tools;34.0.0` installed. Set `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) to the SDK
+location. `smart-apple-dev` shells out to `./gradlew assembleDebug` (or `assembleRelease`
+with `--release`).
 
 ### `smart-apple-dev sign`
 
@@ -73,20 +79,24 @@ Modes:
 
 ### `smart-apple-dev install`
 
-Install an `.ipa` to a connected device.
+Install a built artifact to a connected device. iOS (`.ipa`) uses `ideviceinstaller`;
+Android (`.apk`) uses `adb`.
 
 ```bash
-smart-apple-dev install [--device <udid>] [--ipa <path>]
+smart-apple-dev install [--device <udid|serial>] [--ipa <path>] [--apk <path>] [--platform ios|android|auto]
 ```
 
-Without `--ipa`, builds and signs first. Requires `libimobiledevice` on Linux.
+- Without `--ipa` / `--apk`, builds first (and signs for Apple targets).
+- `--platform auto` (default) picks the platform from `smartapple.toml`'s `target` field.
+- iOS requires `libimobiledevice` on Linux.
+- Android requires `adb` and a device with USB debugging enabled.
 
 ### `smart-apple-dev devices`
 
-List connected iOS devices.
+List connected iOS and/or Android devices.
 
 ```bash
-smart-apple-dev devices
+smart-apple-dev devices [--platform all|ios|android]  # default: all
 ```
 
 ### `smart-apple-dev info`

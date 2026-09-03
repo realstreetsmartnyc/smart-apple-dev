@@ -1,11 +1,8 @@
-"""Device management — wraps libimobiledevice."""
+"""Device management — wraps libimobiledevice (iOS) and adb (Android)."""
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +22,20 @@ class Device:
     def to_dict(self) -> dict[str, Any]:
         return {"udid": self.udid, "name": self.name, "product": self.product,
                 "ios_version": self.ios_version, "connection": self.connection}
+
+
+@dataclass
+class AndroidDevice:
+    """An Android device or emulator."""
+    serial: str
+    state: str = "device"  # device, offline, unauthorized, no permissions
+    product: str = ""
+    model: str = ""
+    transport: str = "usb"  # usb, tcp
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"serial": self.serial, "state": self.state, "product": self.product,
+                "model": self.model, "transport": self.transport}
 
 
 def list_devices() -> list[Device]:
@@ -156,5 +167,107 @@ def get_device_info(udid: str) -> Device | None:
     devices = list_devices()
     for d in devices:
         if d.udid == udid:
+            return d
+    return None
+
+
+# ============================================================
+# Android helpers — wraps the `adb` CLI
+# ============================================================
+
+def _adb() -> str | None:
+    """Locate the adb binary on PATH."""
+    return check_tool("adb")
+
+
+def list_android_devices() -> list[AndroidDevice]:
+    """List connected Android devices and emulators via `adb devices -l`."""
+    adb = _adb()
+    if adb is None:
+        return []  # No adb; doctor reports this.
+
+    exit_code, stdout, _ = run_cmd([adb, "devices", "-l"], timeout=10)
+    if exit_code != 0:
+        return []
+
+    devices: list[AndroidDevice] = []
+    # Skip header line ("List of devices attached")
+    for line in stdout.splitlines()[1:]:
+        line = line.strip()
+        if not line or line.startswith("*"):
+            continue
+
+        # adb output format:
+        #   <serial>  <state>  <key1>:<value1> <key2>:<value2> ...
+        # e.g. "emulator-5554  device product:sdk_gphone64_x86_64 model:Android_SDK_built_for_x86_64"
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        serial, state = parts[0], parts[1]
+
+        kv: dict[str, str] = {}
+        for token in parts[2:]:
+            if ":" in token:
+                k, v = token.split(":", 1)
+                kv[k] = v
+
+        transport = "tcp" if serial.startswith(("emulator-", "127.0.0.1", "localhost")) else "usb"
+        devices.append(AndroidDevice(
+            serial=serial,
+            state=state,
+            product=kv.get("product", ""),
+            model=kv.get("model", ""),
+            transport=transport,
+        ))
+    return devices
+
+
+def install_apk(apk_path: Path, device_serial: str | None = None) -> bool:
+    """Install an .apk to an Android device via adb."""
+    if not apk_path.exists():
+        print(f"APK not found: {apk_path}")
+        return False
+
+    adb = _adb()
+    if adb is None:
+        print("adb not found. Install with: apt-get install adb  (or brew install android-platform-tools)")
+        return False
+
+    devices = list_android_devices()
+    if not devices:
+        print("No Android devices found. Connect one via USB and enable USB debugging.")
+        return False
+
+    if device_serial is None:
+        device_serial = devices[0].serial
+    else:
+        # Validate user-supplied serial
+        if not any(d.serial == device_serial for d in devices):
+            print(f"Device {device_serial} not found in `adb devices`.")
+            return False
+
+    # -r: replace existing install; -t: allow test packages
+    exit_code, stdout, stderr = run_cmd(
+        [adb, "-s", device_serial, "install", "-r", str(apk_path)],
+        timeout=180,
+    )
+
+    if exit_code != 0:
+        if "INSTALL_FAILED_USER_RESTRICTED" in (stderr or ""):
+            print("Install blocked: device disallows installs from this source. "
+                  "Enable USB debugging (Security) → 'Install via USB' on the device.")
+        elif "unauthorized" in (stderr or "").lower():
+            print("Device unauthorized. Accept the RSA fingerprint prompt on the device.")
+        else:
+            print(f"adb install failed: {stderr.strip() or stdout.strip()}")
+        return False
+
+    return True
+
+
+def get_android_device_info(serial: str) -> AndroidDevice | None:
+    """Get info for a specific Android device."""
+    for d in list_android_devices():
+        if d.serial == serial:
             return d
     return None

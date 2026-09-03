@@ -45,6 +45,18 @@ smart-apple-dev devices
 smart-apple-dev install --ipa build/macos/hello.ipa
 ```
 
+Android build (Kotlin template, JDK 17+):
+```bash
+smart-apple-dev init hello --lang kotlin
+cd hello
+smart-apple-dev build --target android
+# → build/outputs/apk/debug/hello-debug.apk
+
+# Install to a connected device or emulator
+smart-apple-dev devices --platform android
+smart-apple-dev install --apk build/outputs/apk/debug/hello-debug.apk
+```
+
 Agent mode (bring your own key, or local model):
 ```bash
 # Local (no API key)
@@ -77,8 +89,10 @@ pip install -e ".[dev]"              # from source
 | C/C++/ObjC builds | `clang`, `lld`, Apple SDK (`smart-apple-dev sdk install`) |
 | Swift | `xtool` |
 | Rust / Go / Kotlin | `cargo` / `go` / `kotlinc` |
+| Android (Kotlin template) | JDK 17+, `ANDROID_HOME` with platform 34 + build-tools 34.0.0 |
 | Signing | `ldid` (Linux) or `codesign` (macOS) — auto-fetched by `doctor --install` |
-| Device install | `libimobiledevice` (`ideviceinstaller`, `usbmuxd`) |
+| Device install (iOS) | `libimobiledevice` (`ideviceinstaller`, `usbmuxd`) |
+| Device install (Android) | `adb` (`apt install adb` / `brew install android-platform-tools`) |
 | App Store upload | `fastlane` or `altool` |
 
 ## Verified Status
@@ -98,7 +112,9 @@ Every row below is tied to passing tests or manual verification on Linux (Ubuntu
 | JS / Java / Python / C# / game engines | 🟡 experimental backends | `src/smartapple/build/*.py` |
 | Signing + IPA packaging | ✅ | `test_sign.py` |
 | `ldid` auto-fetch | ✅ | `doctor.py` |
-| Device helpers | ✅ code, ⚠️ needs libimobiledevice + hardware | manual |
+| Device helpers (iOS) | ✅ code, ⚠️ needs libimobiledevice + hardware | manual |
+| Android (Kotlin) target | ✅ | `test_android_target.py`, CI `android` job |
+| Android device install (adb) | ✅ code, ⚠️ needs `adb` + USB debugging | `test_android_target.py` |
 | App Store helpers (`store/`) | 🟡 helpers only, no `store` CLI yet | code |
 | Provider system (12 providers) | ✅ local+registry tested | `test_provider.py` |
 | SSH / cloud providers | ✅ code, 🟡 needs creds | code |

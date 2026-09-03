@@ -97,7 +97,7 @@ target = "ios"
 
     @cli.command()
     @click.option("--target", default="ios",
-                  type=click.Choice(["ios", "ios-simulator", "macos", "catalyst"]),
+                  type=click.Choice(["ios", "ios-simulator", "macos", "catalyst", "android"]),
                   help="Build target")
     @click.option("--release", is_flag=True, help="Release build")
     @click.option("--provider", default=None,
@@ -143,8 +143,9 @@ target = "ios"
     @click.option("--entitlements", "-E", default=None, type=click.Path(exists=True),
                   help="Path to entitlements.plist")
     @click.option("--ipa", "-i", "to_ipa", is_flag=True,
-                  help="After signing, package the .app into a .ipa")
+                  help="After signing, package the .app into a .ipa (Apple targets only)")
     @click.option("--target", "-t", default=None,
+                  type=click.Choice(["ios", "ios-simulator", "macos", "catalyst", "android"]),
                   help="Build target (default: from smartapple.toml)")
     def sign(mode, identity, profile, entitlements, to_ipa, target):
         """Sign the built app (and optionally package it as an .ipa)."""
@@ -195,17 +196,32 @@ target = "ios"
             print(f"IPA: {ipa_path} ({ipa_path.stat().st_size:,} bytes)")
 
     @cli.command()
-    @click.option("--device", default=None, help="Device UDID")
+    @click.option("--device", default=None,
+                  help="Device UDID (iOS) or serial (Android)")
     @click.option("--ipa", "-f", "ipa_path", default=None, type=click.Path(exists=True),
                   help="Specific .ipa to install (skips build + sign)")
-    def install(device, ipa_path):
+    @click.option("--apk", "apk_path", default=None, type=click.Path(exists=True),
+                  help="Specific .apk to install on Android (skips build + sign)")
+    @click.option("--platform", "platform", default=None,
+                  type=click.Choice(["ios", "android", "auto"]),
+                  help="Target platform (default: auto-detect from artifact)")
+    def install(device, ipa_path, apk_path, platform):
         """Build, sign, package, and install to a connected device."""
         from ..sign import package_ipa
-        from ..device import install_ipa, list_devices
+        from ..device import (
+            install_ipa, list_devices,
+            install_apk, list_android_devices,
+        )
 
-        if ipa_path:
+        # Pre-built artifact path
+        if apk_path:
+            apk = Path(apk_path)
+            target_platform = platform or "android"
+        elif ipa_path:
             ipa = Path(ipa_path)
+            target_platform = platform or "ios"
         else:
+            target_platform = platform or "auto"
             root = find_project_root()
             if root is None:
                 print("Error: No smartapple.toml found.")
@@ -214,52 +230,91 @@ target = "ios"
             config = load_config(root)
             orchestrator = BuildOrchestrator(root)
 
+            # Decide target platform from smartapple.toml
+            if target_platform == "auto":
+                target_platform = "android" if config.target == "android" else "ios"
+
             # Build
-            print(f"[1/3] Building {config.name}...")
-            build_result = orchestrator.build(config)
+            print(f"[1/3] Building {config.name} for {target_platform}...")
+            build_result = orchestrator.build(config, target=config.target)
             if not build_result.success or build_result.artifact is None:
                 print("Build failed.")
                 sys.exit(1)
             print(f"  Build OK: {build_result.artifact}")
 
-            # Sign
-            print(f"[2/3] Signing...")
-            sign_result = sign_artifact(build_result.artifact, config, mode="ad-hoc")
-            if not sign_result.success:
-                print("Signing failed.")
+            if target_platform == "android":
+                # APKs are already signed with the debug keystore
+                apk = build_result.artifact
+            else:
+                # Sign
+                print(f"[2/3] Signing...")
+                sign_result = sign_artifact(build_result.artifact, config, mode="ad-hoc")
+                if not sign_result.success:
+                    print("Signing failed.")
+                    sys.exit(1)
+                print(f"  Sign OK: {sign_result.artifact_path}")
+
+                # Package
+                print(f"[3/3] Packaging .ipa...")
+                ipa = package_ipa(sign_result.artifact_path)
+                print(f"  IPA: {ipa} ({ipa.stat().st_size:,} bytes)")
+
+        if target_platform == "android":
+            devs = list_android_devices()
+            if not devs:
+                print("No Android devices found. Connect one via USB, run `adb devices` to verify, "
+                      "or pass --apk <path> for a pre-built artifact.")
+                return
+            target = device or devs[0].serial
+            print(f"Installing to {target} via adb...")
+            if install_apk(apk, target):
+                print(f"Installed to {target}")
+            else:
+                print("Install failed.")
+                print(f"(You can try manually: adb -s {target} install {apk})")
                 sys.exit(1)
-            print(f"  Sign OK: {sign_result.artifact_path}")
-
-            # Package
-            print(f"[3/3] Packaging .ipa...")
-            ipa = package_ipa(sign_result.artifact_path)
-            print(f"  IPA: {ipa} ({ipa.stat().st_size:,} bytes)")
-
-        # Check for device
-        devices = list_devices()
-        if not devices:
-            print("No iOS devices found. Connect one via USB, or run on a Mac with Xcode.")
-            print("(The .ipa is ready for manual install or App Store upload.)")
-            return
-
-        target = device or devices[0].udid
-        print(f"Installing to {target}...")
-        if install_ipa(ipa, target):
-            print(f"Installed to {target}")
         else:
-            print("Install failed.")
-            print("(You can try manually: ideviceinstaller -u <udid> -i <ipa>)")
-            sys.exit(1)
+            # Check for device
+            devices = list_devices()
+            if not devices:
+                print("No iOS devices found. Connect one via USB, or run on a Mac with Xcode.")
+                print("(The .ipa is ready for manual install or App Store upload.)")
+                return
+
+            target = device or devices[0].udid
+            print(f"Installing to {target}...")
+            if install_ipa(ipa, target):
+                print(f"Installed to {target}")
+            else:
+                print("Install failed.")
+                print("(You can try manually: ideviceinstaller -u <udid> -i <ipa>)")
+                sys.exit(1)
 
     @cli.command()
-    def devices():
-        """List connected iOS devices."""
-        devs = list_devices()
-        if not devs:
-            print("No devices found. Connect an iOS device.")
-            return
-        for d in devs:
-            print(f"  {d.udid} - {d.name} ({d.product}, iOS {d.ios_version})")
+    @click.option("--platform", "platform", default="all",
+                  type=click.Choice(["all", "ios", "android"]),
+                  help="Which device family to list")
+    def devices(platform):
+        """List connected iOS and/or Android devices."""
+        if platform in ("all", "ios"):
+            devs = list_devices()
+            if devs:
+                print("iOS:")
+                for d in devs:
+                    print(f"  {d.udid} - {d.name} ({d.product}, iOS {d.ios_version})")
+            elif platform == "ios":
+                print("No iOS devices found. Connect one and pair trust this Mac/Linux box.")
+        if platform in ("all", "android"):
+            from ..device import list_android_devices
+            androids = list_android_devices()
+            if androids:
+                if platform == "all":
+                    print("Android:")
+                for d in androids:
+                    state = f" [{d.state}]" if d.state and d.state != "device" else ""
+                    print(f"  {d.serial} - {d.model or d.product or 'Android'}{state}")
+            elif platform == "android":
+                print("No Android devices found. Connect one and run `adb devices` to verify.")
 
     @cli.command()
     def info():

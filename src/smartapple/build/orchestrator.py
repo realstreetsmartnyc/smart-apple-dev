@@ -167,7 +167,12 @@ class BuildOrchestrator:
             "cpp": {"clang": ["clang"], "osxcross": ["osxcross"], "cmake": ["cmake"]},
             "rust": {"cargo": ["cargo"], "rustc": ["rustc"]},
             "go": {"go": ["go"]},
-            "kotlin": {"kotlin": ["kotlinc", "kotlin-native"]},
+            "kotlin": {
+                "kotlin": ["kotlinc", "kotlin-native"],
+                "gradle": ["gradlew", "gradle"],
+                "adb": ["adb"],
+                "java": ["java"],
+            },
             "java": {"java": ["java"], "ant": ["ant"], "gradle": ["gradlew"]},
             "python": {"python": ["python3", "python"]},
             "javascript": {"node": ["node"], "npm": ["npm"]},
