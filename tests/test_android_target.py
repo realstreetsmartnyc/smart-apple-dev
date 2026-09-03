@@ -252,3 +252,25 @@ class TestAndroidDeviceInstall:
                 (1, "", "error: device unauthorized. Please accept the RSA prompt."),
             ]
             assert install_apk(apk) is False
+
+    def test_install_validate_false_skips_list(self, tmp_path: Path):
+        """When validate_device=False, install_apk should not call `adb devices`."""
+        apk = tmp_path / "hello.apk"
+        apk.write_bytes(b"x")
+        with mock.patch("smartapple.device.check_tool", return_value="/usr/bin/adb"), \
+             mock.patch("smartapple.device.run_cmd") as rc:
+            rc.return_value = (0, "Success\n", "")
+            # No `adb devices` call should happen
+            ok = install_apk(apk, device_serial="known-serial", validate_device=False)
+            assert ok is True
+        # Only the install call should have been made
+        assert len(rc.call_args_list) == 1
+        cmd = rc.call_args_list[0][0][0]
+        assert "install" in cmd
+        assert "known-serial" in cmd
+
+    def test_install_validate_false_requires_serial(self, tmp_path: Path):
+        apk = tmp_path / "hello.apk"
+        apk.write_bytes(b"x")
+        with mock.patch("smartapple.device.check_tool", return_value="/usr/bin/adb"):
+            assert install_apk(apk, validate_device=False) is False

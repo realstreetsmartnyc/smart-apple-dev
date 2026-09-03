@@ -222,29 +222,42 @@ def list_android_devices() -> list[AndroidDevice]:
     return devices
 
 
-def install_apk(apk_path: Path, device_serial: str | None = None) -> bool:
-    """Install an .apk to an Android device via adb."""
+def install_apk(apk_path: Path, device_serial: str | None = None,
+               *, validate_device: bool = True) -> bool:
+    """Install an .apk to an Android device via adb.
+
+    Set ``validate_device=False`` to skip the internal ``adb devices``
+    round-trip (useful when the caller has already enumerated devices).
+    """
+    from .. import ui
+
     if not apk_path.exists():
-        print(f"APK not found: {apk_path}")
+        ui.error(f"APK not found: {apk_path}")
         return False
 
     adb = _adb()
     if adb is None:
-        print("adb not found. Install with: apt-get install adb  (or brew install android-platform-tools)")
+        ui.error("adb not found.")
+        ui.hint("Install with: apt-get install adb  (or brew install android-platform-tools)")
         return False
 
-    devices = list_android_devices()
-    if not devices:
-        print("No Android devices found. Connect one via USB and enable USB debugging.")
-        return False
-
-    if device_serial is None:
-        device_serial = devices[0].serial
-    else:
-        # Validate user-supplied serial
-        if not any(d.serial == device_serial for d in devices):
-            print(f"Device {device_serial} not found in `adb devices`.")
+    if validate_device:
+        devices = list_android_devices()
+        if not devices:
+            ui.warning("No Android devices found.")
+            ui.hint("Connect a device with USB debugging enabled.")
             return False
+
+        if device_serial is None:
+            device_serial = devices[0].serial
+        else:
+            # Validate user-supplied serial
+            if not any(d.serial == device_serial for d in devices):
+                ui.error(f"Device {device_serial} not found in `adb devices`.")
+                return False
+    elif device_serial is None:
+        ui.error("device_serial is required when validate_device=False")
+        return False
 
     # -r: replace existing install; -t: allow test packages
     exit_code, stdout, stderr = run_cmd(
@@ -254,12 +267,13 @@ def install_apk(apk_path: Path, device_serial: str | None = None) -> bool:
 
     if exit_code != 0:
         if "INSTALL_FAILED_USER_RESTRICTED" in (stderr or ""):
-            print("Install blocked: device disallows installs from this source. "
-                  "Enable USB debugging (Security) → 'Install via USB' on the device.")
+            ui.error("Install blocked: device disallows installs from this source.")
+            ui.hint("Enable USB debugging (Security) -> 'Install via USB' on the device.")
         elif "unauthorized" in (stderr or "").lower():
-            print("Device unauthorized. Accept the RSA fingerprint prompt on the device.")
+            ui.error("Device unauthorized.")
+            ui.hint("Accept the RSA fingerprint prompt on the device.")
         else:
-            print(f"adb install failed: {stderr.strip() or stdout.strip()}")
+            ui.error(f"adb install failed: {stderr.strip() or stdout.strip()}")
         return False
 
     return True

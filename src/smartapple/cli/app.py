@@ -9,6 +9,7 @@ try:
 except ImportError:
     click = None
 
+from .. import ui
 from ..core.config import ProjectConfig, load_config, find_project_root, ensure_dirs, get_platform
 from ..core.sdk import list_installed_sdks, install_sdk, SdkError
 from ..build.orchestrator import BuildOrchestrator
@@ -44,7 +45,7 @@ def create_cli():
         """Create a new smart-apple-dev project."""
         project_dir = Path.cwd() / name
         if project_dir.exists():
-            print(f"Error: {name} already exists")
+            ui.error(f"{name} already exists at {project_dir}")
             sys.exit(1)
         project_dir.mkdir(parents=True)
 
@@ -65,19 +66,57 @@ target = "ios"
         # Create template based on language
         template_dir = Path(__file__).parent.parent.parent.parent / "templates" / lang
         if not template_dir.exists():
-            print(f"Error: no template found for language '{lang}'")
+            ui.error(f"no template found for language '{lang}'")
             sys.exit(1)
 
-        # Template variables for substitution
+        # Template variables. Provide both Jinja style {{ NAME }} and
+        # placeholder style {{NAME}} for compatibility.
         template_vars = {
-            "{{NAME}}": name,
-            "{{BUNDLE_ID}}": bundle,
+            "NAME": name,
+            "BUNDLE_ID": bundle,
+            "LANGUAGE": lang,
+            "TARGET": "macos",  # default; user can edit smartapple.toml
         }
 
-        def render(text: str) -> str:
-            for k, v in template_vars.items():
-                text = text.replace(k, v)
-            return text
+        # Extended vars: many templates reference build/CI vars. Provide
+        # reasonable defaults; users can edit smartapple.toml after init.
+        template_vars.update({
+            "ARCH": "arm64",
+            "PLATFORM": "macos",
+            "PROFILE": "debug",
+            "OPT_LEVEL": "0",
+            "LTO": "false",
+            "CODEGEN_UNITS": "auto",
+            "GOOS": "darwin",
+            "GOARCH": "arm64",
+            "RELEASE": "false",
+            "TEAM_ID": "",
+            "PROVISIONING_PROFILE": "",
+            "MIN_OS": "15.0",
+            "CI_PROVIDER": "github-actions",
+            "BUILD_NUMBER": "1",
+            "VERSION_CODE": "1",
+            "IOS_DEVICE_TARGET": "",
+            "IOS_SDK": "",
+            "TARGET_PLATFORM": "",
+            "DEVELOPMENT": "false",
+            "RP_ACTIVE": "",
+        })
+
+        try:
+            from jinja2 import Environment, ChainableUndefined
+            env = Environment(undefined=ChainableUndefined, keep_trailing_newline=True)
+
+            def render(text: str) -> str:
+                t = env.from_string(text)
+                return t.render(**template_vars)
+
+        except ImportError:
+            # Fallback: simple {{KEY}} replacement (no conditionals).
+            def render(text: str) -> str:
+                for k, v in template_vars.items():
+                    text = text.replace("{{" + k + "}}", str(v))
+                return text
 
         def copy_template(src: Path, dst: Path) -> None:
             if src.is_file():
@@ -88,12 +127,18 @@ target = "ios"
                 for child in src.iterdir():
                     copy_template(child, dst / child.name)
 
-        for item in template_dir.iterdir():
-            copy_template(item, project_dir / item.name)
+        with ui.spinner(f"Scaffolding {name} ({lang}) from template"):
+            for item in template_dir.iterdir():
+                copy_template(item, project_dir / item.name)
 
-        print(f"Created {name} ({lang}) at {project_dir}")
-        print(f"Config: {config_path}")
-        print(f"Next: cd {name} && smart-apple-dev build")
+        ui.success(f"Created {name} ({lang}) at {project_dir}")
+        ui.info(f"Config: {config_path}")
+        ui.summary([
+            ("Project", str(project_dir)),
+            ("Language", lang),
+            ("Bundle ID", bundle),
+            ("Next", f"cd {name} && smart-apple-dev build"),
+        ])
 
     @cli.command()
     @click.option("--target", default="ios",
@@ -106,7 +151,7 @@ target = "ios"
         """Build the current project."""
         root = find_project_root()
         if root is None:
-            print("Error: No smartapple.toml found. Run 'smart-apple-dev init' first.")
+            ui.error("No smartapple.toml found. Run 'smart-apple-dev init' first.")
             sys.exit(1)
 
         config = load_config(root)
@@ -114,22 +159,38 @@ target = "ios"
         prov = get_provider(provider)
         available, reason = prov.is_available()
         if not available:
-            print(f"Provider '{prov.name}' not available: {reason}")
+            ui.error(f"Provider '{prov.name}' not available: {reason}")
             sys.exit(1)
-        result = prov.build(root, config, target=target, release=release)
+
+        task_label = f"Building {config.name} for {target}" + (" (release)" if release else "")
+        with ui.spinner(f"{task_label} via {prov.name}"):
+            result = prov.build(root, config, target=target, release=release)
 
         if result.success:
-            print(f"Build succeeded via {prov.name} ({result.metadata.get('language', '')})")
+            ui.success(f"Build succeeded via {prov.name} ({result.metadata.get('language', '')})")
+            rows = [
+                ("Build", "succeeded"),
+                ("Provider", prov.name),
+                ("Language", str(result.metadata.get("language", ""))),
+                ("Target", target),
+            ]
             if result.artifact:
-                print(f"Artifact: {result.artifact}")
+                rows.append(("Artifact", str(result.artifact)))
             if result.duration_seconds:
-                print(f"Duration: {result.duration_seconds:.1f}s")
+                rows.append(("Duration", f"{result.duration_seconds:.1f}s"))
+            ui.summary(rows)
         else:
-            print(f"Build failed via {prov.name}")
+            ui.error(f"Build failed via {prov.name}")
             for err in result.errors:
-                print(f"  Error: {err}")
+                ui.error(f"  {err}")
+                if "ANDROID" in err or "SDK" in err:
+                    ui.hint("Set ANDROID_HOME / ANDROID_SDK_ROOT, or run: smart-apple-dev doctor --install")
+                elif "JDK" in err:
+                    ui.hint("Install JDK 17+: sudo apt install openjdk-17-jdk")
+                elif "licenses" in err.lower():
+                    ui.hint("Accept Android SDK licenses: yes | sdkmanager --licenses")
             if result.output:
-                print(f"Output: {result.output[:500]}")
+                ui.info(f"Last output: {result.output.strip().splitlines()[-1][:200]}")
             sys.exit(1)
 
     @cli.command()
@@ -176,24 +237,25 @@ target = "ios"
         )
 
         for w in sign_result.warnings:
-            print(f"  warning: {w}")
+            ui.warning(w)
 
         if not sign_result.success:
-            print("Signing failed:")
+            ui.error("Signing failed")
             for err in sign_result.errors:
-                print(f"  Error: {err}")
+                ui.error(f"  {err}")
             sys.exit(1)
 
         if sign_result.signed:
-            print(f"Signed: {sign_result.artifact_path}")
+            ui.success(f"Signed: {sign_result.artifact_path}")
         else:
-            print(f"Build OK but not signed: {sign_result.artifact_path}")
+            ui.warning(f"Build OK but not signed: {sign_result.artifact_path}")
             for w in sign_result.warnings:
-                print(f"  {w}")
+                ui.warning(f"  {w}")
 
         if to_ipa:
-            ipa_path = package_ipa(sign_result.artifact_path)
-            print(f"IPA: {ipa_path} ({ipa_path.stat().st_size:,} bytes)")
+            with ui.spinner("Packaging .ipa"):
+                ipa_path = package_ipa(sign_result.artifact_path)
+            ui.success(f"IPA: {ipa_path} ({ipa_path.stat().st_size:,} bytes)")
 
     @cli.command()
     @click.option("--device", default=None,
@@ -224,7 +286,7 @@ target = "ios"
             target_platform = platform or "auto"
             root = find_project_root()
             if root is None:
-                print("Error: No smartapple.toml found.")
+                ui.error("No smartapple.toml found.")
                 sys.exit(1)
 
             config = load_config(root)
@@ -235,59 +297,73 @@ target = "ios"
                 target_platform = "android" if config.target == "android" else "ios"
 
             # Build
-            print(f"[1/3] Building {config.name} for {target_platform}...")
-            build_result = orchestrator.build(config, target=config.target)
+            ui.step(1, f"Building {config.name} for {target_platform}")
+            with ui.spinner("Compiling"):
+                build_result = orchestrator.build(config, target=config.target)
             if not build_result.success or build_result.artifact is None:
-                print("Build failed.")
+                ui.error("Build failed")
+                for e in build_result.errors:
+                    ui.error(f"  {e}")
                 sys.exit(1)
-            print(f"  Build OK: {build_result.artifact}")
+            ui.success(f"Built {build_result.artifact.name}")
 
             if target_platform == "android":
                 # APKs are already signed with the debug keystore
                 apk = build_result.artifact
             else:
                 # Sign
-                print(f"[2/3] Signing...")
-                sign_result = sign_artifact(build_result.artifact, config, mode="ad-hoc")
+                ui.step(2, "Signing")
+                with ui.spinner("Applying ldid ad-hoc signature"):
+                    sign_result = sign_artifact(build_result.artifact, config, mode="ad-hoc")
                 if not sign_result.success:
-                    print("Signing failed.")
+                    ui.error("Signing failed")
+                    for e in sign_result.errors:
+                        ui.error(f"  {e}")
                     sys.exit(1)
-                print(f"  Sign OK: {sign_result.artifact_path}")
+                ui.success(f"Signed: {sign_result.artifact_path}")
 
                 # Package
-                print(f"[3/3] Packaging .ipa...")
-                ipa = package_ipa(sign_result.artifact_path)
-                print(f"  IPA: {ipa} ({ipa.stat().st_size:,} bytes)")
+                ui.step(3, "Packaging .ipa")
+                with ui.spinner("Zipping"):
+                    ipa = package_ipa(sign_result.artifact_path)
+                ui.success(f"IPA: {ipa} ({ipa.stat().st_size:,} bytes)")
 
         if target_platform == "android":
             devs = list_android_devices()
             if not devs:
-                print("No Android devices found. Connect one via USB, run `adb devices` to verify, "
-                      "or pass --apk <path> for a pre-built artifact.")
+                ui.warning("No Android devices found.")
+                ui.hint("Connect a device with USB debugging enabled, or pass --apk <path>")
                 return
             target = device or devs[0].serial
-            print(f"Installing to {target} via adb...")
-            if install_apk(apk, target):
-                print(f"Installed to {target}")
+            ui.info(f"Installing to {target} via adb")
+            with ui.spinner("Running adb install"):
+                ok = install_apk(apk, target, validate_device=False)
+            if ok:
+                ui.success(f"Installed to {target}")
+                ui.summary([("APK", str(apk)), ("Device", target)])
             else:
-                print("Install failed.")
-                print(f"(You can try manually: adb -s {target} install {apk})")
+                ui.error("Install failed")
+                ui.hint(f"Try manually: adb -s {target} install {apk}")
                 sys.exit(1)
         else:
             # Check for device
             devices = list_devices()
             if not devices:
-                print("No iOS devices found. Connect one via USB, or run on a Mac with Xcode.")
-                print("(The .ipa is ready for manual install or App Store upload.)")
+                ui.warning("No iOS devices found.")
+                ui.hint("Connect a device via USB, or run on a Mac with Xcode")
+                ui.info("(The .ipa is ready for manual install or App Store upload.)")
                 return
 
             target = device or devices[0].udid
-            print(f"Installing to {target}...")
-            if install_ipa(ipa, target):
-                print(f"Installed to {target}")
+            ui.info(f"Installing to {target}")
+            with ui.spinner("Running ideviceinstaller"):
+                ok = install_ipa(ipa, target)
+            if ok:
+                ui.success(f"Installed to {target}")
+                ui.summary([("IPA", str(ipa)), ("Device", target)])
             else:
-                print("Install failed.")
-                print("(You can try manually: ideviceinstaller -u <udid> -i <ipa>)")
+                ui.error("Install failed")
+                ui.hint(f"Try manually: ideviceinstaller -u {target} -i {ipa}")
                 sys.exit(1)
 
     @cli.command()
@@ -299,34 +375,41 @@ target = "ios"
         if platform in ("all", "ios"):
             devs = list_devices()
             if devs:
-                print("iOS:")
+                ui.info(f"iOS ({len(devs)} device{'s' if len(devs) != 1 else ''}):")
                 for d in devs:
-                    print(f"  {d.udid} - {d.name} ({d.product}, iOS {d.ios_version})")
+                    ui.success(f"  {d.udid}  {d.name} ({d.product}, iOS {d.ios_version})")
             elif platform == "ios":
-                print("No iOS devices found. Connect one and pair trust this Mac/Linux box.")
+                ui.warning("No iOS devices found. Connect one and pair trust this Mac/Linux box.")
         if platform in ("all", "android"):
             from ..device import list_android_devices
             androids = list_android_devices()
             if androids:
                 if platform == "all":
-                    print("Android:")
+                    ui.info(f"Android ({len(androids)} device{'s' if len(androids) != 1 else ''}):")
                 for d in androids:
-                    state = f" [{d.state}]" if d.state and d.state != "device" else ""
-                    print(f"  {d.serial} - {d.model or d.product or 'Android'}{state}")
+                    state_tag = f" [{d.state}]" if d.state and d.state != "device" else ""
+                    ui.success(f"  {d.serial}  {d.model or d.product or 'Android'}{state_tag}")
             elif platform == "android":
-                print("No Android devices found. Connect one and run `adb devices` to verify.")
+                ui.warning("No Android devices found. Connect one and run `adb devices` to verify.")
 
     @cli.command()
     def info():
         """Show system information."""
-        print(f"Platform: {get_platform()}")
-        print(f"Project root: {find_project_root()}")
-        dirs = ensure_dirs()
-        for name, path in dirs.items():
-            print(f"  {name}: {path}")
-        print(f"\nInstalled SDKs:")
-        for sdk in list_installed_sdks():
-            print(f"  {sdk.platform} {sdk.version}: {sdk.path}")
+        ui.banner("smart-apple-dev info")
+        rows = [
+            ("Platform", get_platform()),
+            ("Project root", str(find_project_root() or "(none)")),
+        ]
+        for name, path in ensure_dirs().items():
+            rows.append((f"  {name}", str(path)))
+        ui.summary(rows)
+        sdks = list_installed_sdks()
+        if sdks:
+            ui.info(f"Installed SDKs ({len(sdks)}):")
+            for sdk in sdks:
+                ui.success(f"  {sdk.platform} {sdk.version}: {sdk.path}")
+        else:
+            ui.warning("No SDKs installed. Run: smart-apple-dev sdk install")
 
     @cli.group()
     def sdk():
@@ -338,11 +421,10 @@ target = "ios"
         """List installed SDKs."""
         sdks = list_installed_sdks()
         if not sdks:
-            print("No SDKs installed.")
-            print("Run 'smart-apple-dev sdk install' to download one.")
+            ui.warning("No SDKs installed. Run: smart-apple-dev sdk install")
             return
         for s in sdks:
-            print(f"  {s.platform} {s.version}: {s.path}")
+            ui.success(f"  {s.platform} {s.version}: {s.path}")
 
     @sdk.command(name="install")
     @click.option("--platform", default="iphoneos",
@@ -355,24 +437,29 @@ target = "ios"
         if version is None:
             version = available[0] if available else "18.0"
         if version not in SDK_VERSIONS.get(platform, {}):
-            print(f"Available versions: {available}")
+            ui.error(f"Available versions: {available}")
             sys.exit(1)
-        try:
-            install_sdk(platform, version)
-        except SdkError as e:
-            print(f"Error: {e}")
-            sys.exit(1)
+        with ui.spinner(f"Downloading SDK {platform} {version}"):
+            try:
+                install_sdk(platform, version)
+            except SdkError as e:
+                ui.error(str(e))
+                sys.exit(1)
+        ui.success(f"Installed SDK {platform} {version}")
 
     @cli.command()
     def check():
         """Check backend availability."""
         orchestrator = BuildOrchestrator()
+        ui.banner("Backend availability")
         for lang in orchestrator.list_backends():
             info = orchestrator.check_backend_availability(lang)
-            print(f"\n{lang}:")
-            for name, check in info["checks"].items():
-                status = "OK" if check["available"] else "MISSING"
-                print(f"  {name}: {status}")
+            ui.info(f"\n{lang}:")
+            for name, chk in info["checks"].items():
+                if chk["available"]:
+                    ui.success(f"  {name}: OK")
+                else:
+                    ui.warning(f"  {name}: MISSING ({chk.get('path') or 'not found'})")
 
 
     @cli.command()
@@ -430,17 +517,21 @@ target = "ios"
         """List all available providers and their status."""
         from ..build.provider import get_registry
         reg = get_registry()
-        print("Registered providers:")
+        ui.banner("Build providers")
         for p in reg.list_all():
             available, reason = p.is_available()
-            mark = "✓" if available else "✗"
-            print(f"  {mark} {p.name:12s}  {p.description}")
-            if not available:
-                print(f"      {reason}")
+            label = f"{p.name:14s}  {p.description}"
+            if available:
+                ui.success(label)
+            else:
+                ui.warning(label)
+                ui.info(f"      {reason}")
             caps = p.capabilities()
-            print(f"      build={caps.build} sign={caps.sign} install={caps.install} upload={caps.upload}")
-            print(f"      languages: {', '.join(caps.languages)}")
-            print(f"      cost: ${caps.cost_per_build:.2f}/build")
+            ui.info(
+                f"      build={caps.build} sign={caps.sign} install={caps.install} "
+                f"upload={caps.upload}  cost=${caps.cost_per_build:.2f}/build"
+            )
+            ui.info(f"      languages: {', '.join(caps.languages)}")
 
     @provider.command(name="default")
     def provider_default():
@@ -778,3 +869,5 @@ def cli(args=None):
             _sys.argv = old_argv
     else:
         create_cli()()
+if __name__ == "__main__":
+    cli()

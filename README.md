@@ -10,7 +10,7 @@ Cross-platform Apple development CLI — scaffold, build, sign, and ship iOS/mac
 [![PyPI](https://img.shields.io/pypi/v/smart-apple-dev.svg)](https://pypi.org/project/smart-apple-dev/)
 [![Python](https://img.shields.io/pypi/pyversions/smart-apple-dev.svg)](https://pypi.org/project/smart-apple-dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-108%20passing-brightgreen)](#)
+[![Tests](https://img.shields.io/badge/tests-136%20passing-brightgreen)](#)
 
 > **Status: v1.0.0 — public beta.** Core pipeline verified on Linux. See [Verified Status](#verified-status) for what works today.
 
@@ -68,6 +68,20 @@ smart-apple-dev agent --provider anthropic "add a settings screen to this app"
 # Named instance (multiple accounts/tokens)
 smart-apple-dev provider add copilot:default --api-key $GITHUB_TOKEN
 smart-apple-dev agent --provider copilot:default "build for App Store"
+```
+
+### What the output looks like
+
+```
+$ smart-apple-dev build --target android
+[INFO] Building hello for android via local
+[OK] Build succeeded via local (kotlin)
+     Build    succeeded
+  Provider    local
+  Language    kotlin
+    Target    android
+  Artifact    build/outputs/apk/debug/hello-debug.apk
+  Duration    12.3s
 ```
 
 ## Install
@@ -148,6 +162,34 @@ Every row below is tied to passing tests or manual verification on Linux (Ubuntu
 ```bash
 smart-apple-dev init my-app --lang swift --bundle-id com.example.myapp
 ```
+
+## Android Support
+
+<p align="center"><img src="docs/banner-android.svg" width="640" alt="smart-apple-dev Android banner"/></p>
+
+The Kotlin template is a Kotlin Multiplatform project that also builds an Android APK.
+No Mac, no Xcode — just JDK 17+ and the Android SDK.
+
+```bash
+# One-time setup
+export ANDROID_HOME=$HOME/Android/Sdk
+yes | sdkmanager --licenses
+sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+# Scaffold + build
+smart-apple-dev init hello --lang kotlin
+cd hello
+smart-apple-dev build --target android
+# -> build/outputs/apk/debug/hello-debug.apk
+
+# Install on a connected device or emulator
+smart-apple-dev devices --platform android
+smart-apple-dev install --apk build/outputs/apk/debug/hello-debug.apk
+```
+
+The `--target android` flag is also accepted by `sign` and `install`. All
+Android builds are verified on every push by the CI `android` job
+(JDK 17 + cmdline-tools + `assembleDebug` + APK artifact check).
 
 ## Build Providers
 

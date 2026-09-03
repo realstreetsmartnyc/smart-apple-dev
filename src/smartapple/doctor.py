@@ -176,9 +176,10 @@ def run_checks() -> DoctorReport:
 
 def print_report(report: DoctorReport) -> None:
     """Print a human-readable report."""
-    print(f"smart-apple-dev doctor")
-    print(f"  Platform: {report.platform}")
-    print(f"  Arch:     {report.arch}")
+    from . import ui
+
+    ui.banner("smart-apple-dev doctor")
+    ui.info(f"Platform: {report.platform}  /  Arch: {report.arch}")
     print()
 
     by_category: dict[str, list[CheckResult]] = {}
@@ -186,32 +187,38 @@ def print_report(report: DoctorReport) -> None:
         by_category.setdefault(c.category, []).append(c)
 
     for cat, items in by_category.items():
-        print(f"  [{cat}]")
+        ui.info(f"[{cat}]")
         for c in items:
-            mark = "OK " if c.available else ("!! " if c.required else ".. ")
             tag = "" if c.available else (" (REQUIRED)" if c.required else " (optional)")
             ver = _version_of(c.name) if c.available and c.path and c.name in ("clang", "cmake") else ""
             ver_str = f"  {ver}" if ver else ""
-            print(f"    {mark}{c.name}{tag}{ver_str}")
+            label = f"  {c.name}{tag}{ver_str}"
+            if c.available:
+                ui.success(label)
+            elif c.required:
+                ui.error(label)
+            else:
+                ui.warning(label)
         print()
 
-    print(f"  SDKs installed:   {report.sdk_count}")
-    print(f"  Devices connected: {report.device_count}")
-    print()
+    ui.summary([
+        ("SDKs installed", str(report.sdk_count)),
+        ("Devices connected", str(report.device_count)),
+    ])
 
     if report.missing_required:
-        print(f"  MISSING REQUIRED: {len(report.missing_required)}")
+        ui.error(f"MISSING REQUIRED ({len(report.missing_required)}):")
         for c in report.missing_required:
-            print(f"    - {c.name}: {c.install_hint}")
+            ui.error(f"  - {c.name}: {c.install_hint}")
         print()
 
     if report.missing_optional:
-        print(f"  Missing optional: {len(report.missing_optional)}")
+        ui.warning(f"Missing optional ({len(report.missing_optional)}):")
         for c in report.missing_optional[:5]:
-            print(f"    - {c.name}: {c.install_hint}")
+            ui.info(f"  - {c.name}: {c.install_hint}")
         if len(report.missing_optional) > 5:
-            print(f"    ... and {len(report.missing_optional) - 5} more")
-        print(f"\n  Run `smart-apple-dev doctor --install` to auto-install what we can.")
+            ui.info(f"  ... and {len(report.missing_optional) - 5} more")
+        ui.hint("Run `smart-apple-dev doctor --install` to auto-install what we can.")
 
 
 # ============================================================
