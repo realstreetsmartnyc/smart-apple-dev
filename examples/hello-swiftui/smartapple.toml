@@ -1,0 +1,8 @@
+[project]
+name = "hello-swiftui"
+language = "swift"
+bundle_id = "com.example.hello-swiftui"
+version = "0.1.0"
+build_system = "swiftpm"
+min_os = "15.0"
+target = "ios"
