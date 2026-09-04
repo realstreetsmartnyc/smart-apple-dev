@@ -145,6 +145,10 @@ target = "ios"
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 try:
                     dst.write_text(render(src.read_text()))
+                    # Preserve the source's executable bit (e.g. gradlew).
+                    mode = src.stat().st_mode
+                    if mode & 0o111:
+                        dst.chmod(mode & 0o777)
                 except UnicodeDecodeError:
                     # Binary file (e.g. gradle-wrapper.jar) — copy as bytes.
                     import shutil as _shutil
