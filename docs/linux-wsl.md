@@ -25,6 +25,40 @@ sudo apt install -y adb                     # Android device install
 sudo apt install -y openjdk-17-jdk          # Android builds
 ```
 
+## Swift for Linux (xtool)
+
+`smart-apple-dev` supports Swift development on Linux through `xtool`,
+a cross-platform Xcode replacement written in Swift.
+
+### Installing xtool
+
+```bash
+# Downloads Swift for Linux (~600 MB) and builds xtool from source
+smart-apple-dev xtool install
+```
+
+This installs:
+- `~/.smart-apple-dev/swift/` — Swift toolchain
+- `~/.smart-apple-dev/xtool/` — xtool source + build artifacts
+- `~/.smart-apple-dev/tools/` — symlinks for `swift`, `xtool`, `ldid`, `ld64.lld`
+
+### Status
+
+```bash
+smart-apple-dev xtool status
+```
+
+Reports whether Swift, xtool, and the tools are on PATH.
+
+### Prerequisites on Linux
+
+- `git`, `curl`, or `aria2c` (aria2c is faster for the 600 MB download)
+- At least 5 GB free disk space (falls back to `/tmp/sad-install/` if home is tight)
+
+### Swift on macOS
+
+On macOS, Swift is pre-installed. No extra steps needed.
+
 ## Apple SDK
 
 The Apple SDKs are proprietary. On a Mac, run `smart-apple-dev sdk extract`

@@ -15,6 +15,8 @@
   language template ships a .gitignore
 - **Templates**: `.gitignore` added to all 7 language templates (swift,
   kotlin, godot, cpp, go, rust, objc)
+- **Docs**: `docs/linux-wsl.md` now includes a Swift for Linux / xtool section
+  covering install, status check, and disk-space requirements
 
 ### Changed
 - **ObjC backend**: documented that xtool is a last-resort fallback for ObjC;
