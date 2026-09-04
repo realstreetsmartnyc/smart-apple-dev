@@ -163,6 +163,12 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Install smart-apple-dev
         run: |
           python -m pip install --upgrade pip

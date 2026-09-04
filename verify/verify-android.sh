@@ -87,8 +87,20 @@ PLATFORM=$(detect_platform)
 step "Platform: $PLATFORM"
 
 # ---------- Step 1: JDK ----------
+# Auto-detect JAVA_HOME if not set (needed for gradle subprocess)
+if [[ -z "${JAVA_HOME:-}" ]]; then
+    if [[ -x "/usr/lib/jvm/java-17-openjdk-amd64/bin/java" ]]; then
+        export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+    elif [[ -x "/usr/lib/jvm/java-17-openjdk-amd64/bin/java" ]]; then
+        export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)" 2>/dev/null || echo "")")"
+    fi
+fi
+
 step "1/6 JDK 17+"
-JAVA_BIN="$(command -v java || true)"
+JAVA_BIN="${JAVA_HOME:-$(command -v java || true)}/bin/java"
+if [[ ! -x "$JAVA_BIN" ]]; then
+    JAVA_BIN="$(command -v java || true)"
+fi
 if [[ -z "$JAVA_BIN" ]]; then
     fail "jdk" "java not on PATH"
     JDK_OK=0
