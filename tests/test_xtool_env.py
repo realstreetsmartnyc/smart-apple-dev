@@ -122,7 +122,9 @@ class TestXtoolStatusFunction:
     ):
         mock_platform.return_value = "linux"
         mock_xd.return_value = Path("/home/user/.smart-apple-dev/xtool")
-        s = xtool_status()
+        # Also clear PATH so the fallback loop finds nothing
+        with patch.dict("os.environ", {"PATH": ""}, clear=True):
+            s = xtool_status()
         assert s.platform == "linux"
         assert s.swift_installed is False
         assert s.xtool_cloned is False
