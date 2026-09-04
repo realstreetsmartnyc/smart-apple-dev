@@ -1,3 +1,9 @@
+// Repository required for Firebase and Kotlin Multiplatform dependencies.
+repositories {
+    google()
+    mavenCentral()
+}
+
 // smart-apple-dev Kotlin Multiplatform template — iOS + Android in one codebase.
 // Sources live in src/commonMain (shared) and are compiled to:
 //   - Android (com.android.application)
