@@ -1,3 +1,25 @@
+## [1.0.2] - 2026-09-04
+### Fixed
+- **ObjC backend**: prioritize clang/osxcross over xtool shim; the Python
+  xtool shim only handles Swift commands and caused ObjC builds to fail
+- **CI**: PyPI publish job now uses `continue-on-error: true` so a missing or
+  invalid `PYPI_API_TOKEN` doesn't block CI
+- **CI**: JDK 17 auto-detected in verify job for Android Kotlin builds
+
+### Added
+- **Tests**: `tests/test_xtool_env.py` — 11 tests for xtool environment manager
+  (XtoolStatus, install_root, status snapshots)
+- **Tests**: `tests/test_notarize.py` — 14 tests for notarization module
+  (NotarizeResult, zip creation, macOS/local/remote paths)
+- **Tests**: `tests/test_template_gitignore.py` — 3 tests ensuring every
+  language template ships a .gitignore
+- **Templates**: `.gitignore` added to all 7 language templates (swift,
+  kotlin, godot, cpp, go, rust, objc)
+
+### Changed
+- **ObjC backend**: documented that xtool is a last-resort fallback for ObjC;
+  clang/osxcross is preferred
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

@@ -1,6 +1,6 @@
 """smart-apple-dev: Cross-platform iOS/macOS development toolchain."""
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 __all__ = ["cli"]
 
 # Import all modules for auto-discovery

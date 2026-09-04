@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "smart-apple-dev"
-version = "1.0.1"
+version = "1.0.2"
 description = "Cross-platform iOS/macOS development toolchain for Linux and Windows"
 readme = "README.md"
 requires-python = ">=3.11"
