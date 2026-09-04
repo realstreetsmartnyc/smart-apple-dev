@@ -1,0 +1,12 @@
+# Objective-C / CocoaPods
+build/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+Pods/
+Podfile.lock
+*.moved-aside
+*.ipa
+*.dSYM.zip
+*.hmap
+*.ipa/
+*.xcuserstate

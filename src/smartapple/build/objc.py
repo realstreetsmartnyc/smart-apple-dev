@@ -23,10 +23,14 @@ class ObjCBackend:
     def build(self, config: ProjectConfig, project_dir: Path,
               target: str = "ios", release: bool = False) -> BuildResult:
         """Build an Objective-C project for iOS/macOS."""
-        # Try xtool first (cross-platform Xcode-style builds)
-        xtool_path = check_tool("xtool")
-        if xtool_path is not None:
-            return self._build_with_xtool(xtool_path, config, project_dir, target, release)
+        # Prefer clang + osxcross for ObjC (Swift xtool is for Swift projects).
+        # Only fall back to xtool if no clang is available at all.
+        clang_path = check_tool("clang")
+        if clang_path is None:
+            # No clang — try xtool as a last resort
+            xtool_path = check_tool("xtool")
+            if xtool_path is not None:
+                return self._build_with_xtool(xtool_path, config, project_dir, target, release)
 
         # Try CppBackend which handles clang + osxcross
         try:
@@ -38,15 +42,14 @@ class ObjCBackend:
         except ImportError:
             pass
 
-        # Fall back to direct clang (if osxcross is available)
-        clang_path = check_tool("clang")
+        # No CppBackend and no xtool — try direct clang
         if clang_path is None:
             return BuildResult(
                 success=False,
                 errors=[
                     "No ObjC build tool found. Options:\n"
-                    "  1. Install xtool: curl -fsSL https://xtool.sh/install.sh | bash\n"
-                    "  2. Install osxcross + clang: see USER_GUIDE.md"
+                    "  1. Install osxcross + clang: see USER_GUIDE.md\n"
+                    "  2. Install xtool: curl -fsSL https://xtool.sh/install.sh | bash"
                 ],
                 language="objc",
             )

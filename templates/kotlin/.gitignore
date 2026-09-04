@@ -1,0 +1,11 @@
+# Kotlin / Android
+build/
+.gradle/
+.local.properties
+*.apk
+*.aab
+*.dex
+*.class
+*.jar
+*.log
+local.properties

@@ -1,0 +1,8 @@
+# Swift
+.build/
+Packages/*.xcodeproj
+*.xcuserstate
+*.xcuserdatad
+*.xcworkspace
+.swiftpm/
+DerivedData/
