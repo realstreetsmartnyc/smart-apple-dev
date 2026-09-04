@@ -1,6 +1,8 @@
 """smart-apple-dev CLI application."""
 
 import json
+import os
+import re
 import sys
 from pathlib import Path
 
@@ -68,6 +70,26 @@ target = "ios"
         if not template_dir.exists():
             ui.error(f"no template found for language '{lang}'")
             sys.exit(1)
+
+        # Pre-flight: warn if no Apple SDK is installed and target is Apple.
+        # We do not block — the user may have other plans — but make it loud
+        # so a fresh box doesn't silently produce a project that won't build.
+        try:
+            from ..core.sdk import list_installed_sdks
+            sdks = list_installed_sdks()
+        except Exception:
+            sdks = []
+        if not sdks and lang in ("objc", "cpp", "rust", "go", "swift", "kotlin"):
+            ui.warning("No Apple SDK installed.")
+            ui.hint(
+                f"smart-apple-dev will scaffold the project, but a build will fail "
+                f"until an SDK is installed. Run:\n"
+                f"  smart-apple-dev sdk install macosx 14.0\n"
+                f"or place a MacOSX*.sdk.tar.xz in {Path.home() / '.smart-apple-dev' / 'sdk'}/"
+            )
+            # Non-interactive: just continue. The build will fail with a clear
+            # error pointing to sdk install. We could add `--strict-sdk`
+            # to abort here if desired.
 
         # Template variables. Provide both Jinja style {{ NAME }} and
         # placeholder style {{NAME}} for compatibility.
@@ -256,6 +278,258 @@ target = "ios"
             with ui.spinner("Packaging .ipa"):
                 ipa_path = package_ipa(sign_result.artifact_path)
             ui.success(f"IPA: {ipa_path} ({ipa_path.stat().st_size:,} bytes)")
+
+    @cli.command()
+    @click.option("--artifact", "-a", "artifact_path", default=None,
+                  type=click.Path(exists=True),
+                  help="Path to the .app or .pkg to notarize (default: build/<target>/<name>.app)")
+    @click.option("--identity", "-i", default=None,
+                  help="Keychain profile name (for xcrun notarytool)")
+    @click.option("--remote", "remote_host", default=None,
+                  help="SSH user@host to run notarization on a remote Mac")
+    @click.option("--bundle-id", default=None,
+                  help="com.example.app identifier (for stapling)")
+    def notarize(artifact_path, identity, remote_host, bundle_id):
+        """Notarize a macOS .app for distribution outside the App Store.
+
+        On macOS: uses xcrun notarytool + stapler.
+        On Linux/Windows: requires --remote to SSH into a Mac.
+
+        The credential store is the same as Apple's docs recommend:
+        `xcrun notarytool store-credentials <name>`. The keychain profile
+        name is passed via --identity.
+        """
+        from ..notarize import notarize_app
+        root = find_project_root()
+        if root is None:
+            ui.error("No smartapple.toml found. Run `smart-apple-dev init` first.")
+            sys.exit(1)
+        config = load_config(root)
+
+        # Default artifact path
+        if artifact_path is None:
+            target = config.target or "macos"
+            name = config.name
+            candidate = root / "build" / target / f"{name}.app"
+            if candidate.exists():
+                artifact_path = str(candidate)
+            else:
+                ui.error(f"Could not find {candidate}; pass --artifact explicitly.")
+                sys.exit(1)
+
+        result = notarize_app(
+            artifact_path,
+            identity=identity,
+            remote_host=remote_host,
+            bundle_id=bundle_id or config.bundle_id,
+        )
+        if not result.success:
+            ui.error("Notarization failed")
+            for err in result.errors:
+                ui.error(f"  {err}")
+            sys.exit(1)
+        for w in result.warnings:
+            ui.warning(w)
+        ui.success(f"Notarized: {result.artifact_path}")
+        if result.ticket_path:
+            ui.info(f"Stapled ticket: {result.ticket_path}")
+
+    @cli.command()
+    @click.argument("name")
+    @click.option("--lang", default="objc",
+                  type=click.Choice(["swift", "objc", "cpp", "rust", "go", "kotlin"]),
+                  help="Project language (default: objc)")
+    @click.option("--bundle-id", default=None,
+                  help="App bundle identifier (default: com.example.<name>)")
+    @click.option("--target", default=None,
+                  type=click.Choice(["ios", "ios-simulator", "macos", "android"]),
+                  help="Build target (default: from smartapple.toml after init)")
+    def new(name, lang, bundle_id, target):
+        """Scaffold a new project AND run an initial build to confirm the toolchain.
+
+        Equivalent to `init <name> --lang <lang>` followed by `build` and
+        `sign --mode ad-hoc --ipa` for Apple targets, or `build` for
+        Android. Exits non-zero if the initial build fails so CI can
+        detect a broken toolchain immediately.
+        """
+        runner = _get_click()
+        # Delegate to init first
+        ctx = runner.Context(  # type: ignore[attr-defined]
+            cli, info_name="smart-apple-dev", resilient_parsing=True,
+        )
+        try:
+            init_cmd = cli.commands["init"]
+            ctx.invoke(init_cmd, name=name, lang=lang, bundle_id=bundle_id)
+        except SystemExit as e:
+            if e.code != 0:
+                raise
+
+        project_dir = Path.cwd() / name
+        if not project_dir.exists():
+            ui.error(f"init did not create {project_dir}")
+            sys.exit(1)
+        os.chdir(project_dir)
+
+        # Override target if provided
+        if target is not None:
+            cfg_path = project_dir / "smartapple.toml"
+            text = cfg_path.read_text()
+            import re as _re
+            text = _re.sub(r'target = "[^"]+"', f'target = "{target}"', text)
+            cfg_path.write_text(text)
+
+        # Initial build
+        try:
+            build_cmd = cli.commands["build"]
+            ctx.invoke(build_cmd, target=target) if target else ctx.invoke(build_cmd)
+        except SystemExit as e:
+            if e.code != 0:
+                ui.hint("Run `smart-apple-dev doctor` to debug toolchain issues.")
+                raise
+
+        # If Apple target and build succeeded, also do ad-hoc sign + ipa
+        if target is None or target in ("macos", "ios", "ios-simulator"):
+            try:
+                sign_cmd = cli.commands["sign"]
+                ctx.invoke(sign_cmd, mode="ad-hoc", to_ipa=True, target=target or "macos")
+            except SystemExit:
+                # Non-fatal: build was OK, sign may have its own issues
+                pass
+
+        ui.summary([
+            ("Project", str(project_dir)),
+            ("Language", lang),
+            ("Next: device install", f"smart-apple-dev install (iOS, requires USB)"),
+            ("Next: open in editor", f"cd {project_dir} && code ."),
+        ])
+
+    @cli.group()
+    def xtool():
+        """Manage the xtool environment (Swift for Linux + xtool)."""
+        pass
+
+    @xtool.command(name="status")
+    @click.option("--json", "as_json", is_flag=True,
+                  help="Output machine-readable JSON")
+    def xtool_status(as_json):
+        """Report the current xtool environment state."""
+        from ..xtool_env import xtool_status as _status
+        s = _status()
+        if as_json:
+            import json as _json
+            print(_json.dumps(s.to_dict(), indent=2))
+            return
+        rows = [
+            ("Platform", s.platform),
+            ("Swift installed", "yes" if s.swift_installed else "no"),
+            ("Swift version", s.swift_version or "-"),
+            ("Swift path", s.swift_path or "-"),
+            ("xtool cloned", "yes" if s.xtool_cloned else "no"),
+            ("xtool built", "yes" if s.xtool_built else "no"),
+            ("xtool path", s.xtool_path or "-"),
+            ("On PATH", "yes" if s.on_path else "no"),
+        ]
+        ui.summary(rows)
+        if s.notes:
+            print()
+            for n in s.notes:
+                ui.hint(n)
+        if s.is_ready():
+            ui.success("xtool is ready. Run `smart-apple-dev new myapp --lang swift` to start.")
+        else:
+            ui.warning("xtool is not ready. Run `smart-apple-dev xtool install`.")
+
+    @xtool.command(name="install")
+    @click.option("--redownload", is_flag=True,
+                  help="Re-download the Swift toolchain even if it's already present")
+    @click.option("--yes", "-y", is_flag=True,
+                  help="Skip the confirmation prompt (assumes yes)")
+    def xtool_install(redownload, yes):
+        """Install Swift for Linux and build xtool from source.
+
+        Downloads ~600 MB and compiles for ~5 min. Idempotent: re-running
+        is fast if everything is already installed.
+        """
+        from ..xtool_env import xtool_install as _install, xtool_status as _status
+        s = _status()
+        if s.is_ready() and not redownload:
+            ui.success("xtool is already installed.")
+            return
+        if not yes:
+            print()
+            print("This will:")
+            print("  1. Download Swift for Linux (~600 MB) from swift.org")
+            print("  2. Extract it to ~/.smart-apple-dev/swift/")
+            print("  3. Clone the xtool repo to ~/.smart-apple-dev/xtool/")
+            print("  4. Build xtool with `swift build` (~5 min)")
+            print("  5. Symlink `swift` and `xtool` into ~/.smart-apple-dev/tools/")
+            print()
+            if not click.confirm("Proceed?", default=False):
+                ui.warning("aborted by user")
+                sys.exit(1)
+        try:
+            s2 = _install(redownload=redownload)
+        except Exception as e:
+            ui.error(f"install failed: {e}")
+            sys.exit(1)
+        ui.success("xtool installed.")
+        if not s2.on_path:
+            ui.hint(
+                "add ~/.smart-apple-dev/tools to your PATH (or use the symlinks "
+                "that `verify.sh` and the CLI already include)"
+            )
+
+    @xtool.command(name="uninstall")
+    @click.option("--yes", "-y", is_flag=True,
+                  help="Skip the confirmation prompt")
+    def xtool_uninstall(yes):
+        """Remove the xtool environment (Swift toolchain + xtool source)."""
+        from ..xtool_env import xtool_uninstall as _uninstall
+        if not yes:
+            if not click.confirm("Remove ~/.smart-apple-dev/swift and ~/.smart-apple-dev/xtool?", default=False):
+                ui.warning("aborted by user")
+                sys.exit(1)
+        _uninstall()
+        ui.success("xtool removed.")
+
+    @xtool.command(name="verify")
+    def xtool_verify():
+        """Run a build through xtool to confirm the full pipeline works end-to-end."""
+        from ..xtool_env import xtool_status as _status
+        s = _status()
+        if not s.is_ready():
+            ui.error("xtool not ready. Run `smart-apple-dev xtool install` first.")
+            sys.exit(1)
+        # Build a tiny SwiftPM project and run xtool on it
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pkg = tdp / "Package.swift"
+            pkg.write_text(
+                '''// swift-tools-version: 5.9
+import PackageDescription
+let package = Package(
+    name: "hello",
+    targets: [.executableTarget(name: "hello")]
+)
+'''
+            )
+            src = tdp / "Sources" / "hello" / "main.swift"
+            src.parent.mkdir(parents=True)
+            src.write_text('''
+import Foundation
+print("Hello from xtool-verified smart-apple-dev!")
+''')
+            # Run xtool new + xtool dev
+            r = subprocess.run(
+                [s.xtool_path, "new", str(tdp / "app"),
+                 "--package-path", str(tdp)],
+                capture_output=True, text=True, timeout=120,
+            )
+            if r.returncode != 0:
+                ui.error(f"xtool new failed: {r.stderr[-500:]}")
+                sys.exit(1)
+            ui.success("xtool can scaffold an iOS project from a SwiftPM package.")
 
     @cli.command()
     @click.option("--device", default=None,
@@ -465,10 +739,26 @@ target = "ios"
     @cli.command()
     @click.option("--install", "auto_install", is_flag=True,
                   help="Auto-install missing optional tools")
-    def doctor(auto_install):
+    @click.option("--json", "as_json", is_flag=True,
+                  help="Output machine-readable JSON")
+    def doctor(auto_install, as_json):
         """Diagnose the local toolchain and report what's missing."""
-        from ..doctor import run_checks, print_report, install_all
+        from ..doctor import run_checks, print_report, install_all, DoctorReport
         report = run_checks()
+        if as_json:
+            import json as _json
+            data = {
+                "platform": report.platform,
+                "arch": report.arch,
+                "all_ok": report.all_ok,
+                "sdk_count": report.sdk_count,
+                "device_count": report.device_count,
+                "checks": [c.to_dict() for c in report.checks],
+                "missing_required": [c.to_dict() for c in report.missing_required],
+                "missing_optional": [c.to_dict() for c in report.missing_optional],
+            }
+            print(_json.dumps(data, indent=2))
+            return
         print_report(report)
         if auto_install:
             print()

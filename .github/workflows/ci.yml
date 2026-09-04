@@ -28,7 +28,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld make tar curl git cmake pkg-config lld
+          sudo apt-get install -y clang lld make tar curl git cmake pkg-config lld libplist-dev libssl-dev
 
       - name: Install Python dependencies
         run: |
@@ -134,8 +134,49 @@ jobs:
       - name: Run Android-target tests
         run: pytest tests/test_android_target.py -v
 
+  verify:
+    name: End-to-end toolchain (verify.sh)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld make tar curl git cmake libplist-dev libssl-dev
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install smart-apple-dev
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run verify.sh
+        env:
+          # verify.sh needs the macOS SDK tarball; pin to a known-good release
+          SDK_TARBALL_URL: https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/MacOSX11.3.sdk.tar.xz
+        run: |
+          chmod +x verify/verify.sh
+          # Skip doctl/etc that need network; the default flow is fine on CI.
+          ./verify/verify.sh --local
+
+      - name: Upload IPA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa-artifacts
+          path: |
+            /tmp/sad-verify-*/app/build/macos/*.ipa
+          if-no-files-found: ignore
+
   publish:
-    needs: test
+    needs: [test, verify]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     permissions:

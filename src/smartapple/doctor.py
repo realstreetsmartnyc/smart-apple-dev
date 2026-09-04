@@ -97,6 +97,7 @@ def run_checks() -> DoctorReport:
         path=path,
         required=False,
         install_hint="apt install cmake (recommended for C++ projects)",
+        install_fn=install_cmake_via_apt if _is_apt_system() else None,
     ))
 
     # --- Apple tools ---
@@ -158,6 +159,7 @@ def run_checks() -> DoctorReport:
             path=path,
             required=False,
             install_hint="apt install libimobiledevice usbmuxd",
+            install_fn=install_libimobiledevice_via_apt if _is_apt_system() else None,
         ))
 
     # --- SDKs ---
@@ -330,6 +332,107 @@ def install_cctools() -> bool:
     print()
     print("    Alternatively, run smart-apple-dev build --provider cloud for now.")
     return False
+
+
+def _is_apt_system() -> bool:
+    """Detect Debian/Ubuntu-family systems where apt-get works."""
+    return os.path.exists("/usr/bin/apt-get") or os.path.exists("/usr/bin/apt")
+
+
+def install_apt_pkgs(pkgs: list[str]) -> bool:
+    """Install packages via apt-get. Returns True on success.
+    
+    Used as a building block for the per-tool install functions. We don't
+    shell out to `apt` directly because it needs sudo and we want a
+    consistent code path.
+    """
+    if not _is_apt_system():
+        print(f"    not an apt system; cannot install {pkgs}")
+        return False
+    # Refresh package cache (best-effort, non-fatal)
+    subprocess.run(
+        ["sudo", "-n", "apt-get", "update", "-qq"],
+        capture_output=True, text=True, timeout=120,
+    )
+    r = subprocess.run(
+        ["sudo", "-n", "apt-get", "install", "-y", "-qq"] + pkgs,
+        capture_output=True, text=True, timeout=600,
+    )
+    if r.returncode != 0:
+        # Try without sudo (some distros let user install without)
+        r = subprocess.run(
+            ["apt-get", "install", "-y", "-qq"] + pkgs,
+            capture_output=True, text=True, timeout=600,
+        )
+    if r.returncode != 0:
+        print(f"    apt install failed: {r.stderr.splitlines()[-1] if r.stderr else 'unknown'}")
+        return False
+    print(f"    installed: {', '.join(pkgs)}")
+    return True
+
+
+def install_clang_via_apt() -> bool:
+    return install_apt_pkgs(["clang", "lld", "llvm"])
+
+
+def install_cmake_via_apt() -> bool:
+    return install_apt_pkgs(["cmake"])
+
+
+def install_lld_via_apt() -> bool:
+    return install_apt_pkgs(["lld", "llvm"])
+
+
+def install_libimobiledevice_via_apt() -> bool:
+    """Install libimobiledevice for iOS device install over USB."""
+    return install_apt_pkgs(["libimobiledevice-utils", "usbmuxd"])
+
+
+def install_godot_export_templates() -> bool:
+    """Download Godot export templates (used by the godot game path).
+    
+    These are ~1 GB and live in ~/.local/share/godot/export_templates/<ver>/.
+    """
+    godot = check_tool("godot")
+    if not godot:
+        print("    godot not found; install it first")
+        return False
+    r = subprocess.run([godot, "--version"], capture_output=True, text=True, timeout=10)
+    ver = (r.stdout or r.stderr).strip().split()[-1] if r.returncode == 0 else ""
+    # Godot outputs e.g. "4.2.2.stable.official.15073afe3" — strip suffix
+    import re as _re
+    m = _re.match(r"^(\d+\.\d+(\.\d+)?)", ver)
+    if not m:
+        print(f"    cannot parse godot version: {ver!r}")
+        return False
+    ver_short = m.group(1)
+    target = Path.home() / ".local" / "share" / "godot" / "export_templates" / f"{ver_short}.stable"
+    if (target / "macos.zip").exists():
+        print(f"    already installed at {target}")
+        return True
+    target.mkdir(parents=True, exist_ok=True)
+    url = f"https://github.com/godotengine/godot-builds/releases/download/{ver_short}-stable/Godot_v{ver_short}-stable_export_templates.tpz"
+    print(f"    downloading {url} (~1 GB)...")
+    tmp = Path(tempfile.mkdtemp()) / "templates.tpz" if False else target / "_templates.tpz"
+    r = subprocess.run(["curl", "-L", "-f", "-o", str(tmp), url],
+                       capture_output=True, text=True, timeout=900)
+    if r.returncode != 0:
+        print(f"    download failed (returncode {r.returncode})")
+        if tmp.exists():
+            tmp.unlink()
+        return False
+    import zipfile as _zipfile
+    try:
+        with _zipfile.ZipFile(tmp, "r") as z:
+            z.extractall(target)
+    except Exception as e:
+        print(f"    extract failed: {e}")
+        if tmp.exists():
+            tmp.unlink()
+        return False
+    tmp.unlink()
+    print(f"    installed templates to {target}")
+    return True
 
 
 def install_all(report: DoctorReport) -> int:
