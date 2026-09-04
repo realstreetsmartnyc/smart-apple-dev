@@ -90,7 +90,11 @@ jobs:
           rm tools.zip
           mv cmdline-tools latest
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-          yes | sdkmanager --licenses > /dev/null
+          # `yes` outputs infinitely; when sdkmanager stops reading, yes
+          # gets SIGPIPE → "Broken pipe" non-zero exit. With pipefail this
+          # fails the step. Suppress yes's stderr and allow the pipe to
+          # succeed (sdkmanager's actual license acceptance is what we need).
+          yes 2>/dev/null | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Cache Gradle

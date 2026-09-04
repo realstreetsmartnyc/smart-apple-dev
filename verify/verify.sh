@@ -417,10 +417,15 @@ EOF
                 fi
                 ;;
             swift)
-                if command -v swift >/dev/null 2>&1 || command -v xtool >/dev/null 2>&1; then
+                # Only attempt if a native swift binary is on PATH. xtool can
+                # build swift projects but is not installed on most CI systems.
+                # The TOOLS_DIR/smart-apple-dev wrapper can give a false positive
+                # for "xtool is available" via PATH, so check for the real swift
+                # compiler instead.
+                if command -v swift >/dev/null 2>&1; then
                     test_language swift
                 else
-                    warn "swift" "swift not installed (xtool also absent); skipping"
+                    warn "swift" "swift not installed on PATH; skipping (xtool is not auto-installed on CI)"
                 fi
                 ;;
             kotlin)

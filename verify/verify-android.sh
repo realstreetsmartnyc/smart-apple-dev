@@ -191,7 +191,14 @@ fi
 
 info "Running: smart-apple-dev build --target android"
 if [[ "$JDK_OK" == "1" && -n "${ANDROID_HOME:-}" ]]; then
-    if "$CLI" build --target android 2>&1 | tail -40; then
+    # Capture build output AND exit code separately. `cmd | tail` would mask
+    # the real exit status because tail always succeeds.
+    BUILD_OUT="$("$CLI" build --target android 2>&1)"
+    BUILD_RC=$?
+    if [[ $BUILD_RC -ne 0 ]]; then
+        info "$(echo "$BUILD_OUT" | tail -20)"
+        fail "build" "smart-apple-dev build --target android exited with code $BUILD_RC"
+    else
         APK="$(find "$TMP_BUILD/hello-kotlin/build/outputs/apk" -name '*.apk' 2>/dev/null | head -1 || true)"
         if [[ -n "$APK" ]] && [[ -f "$APK" ]]; then
             pass "build"
@@ -205,8 +212,6 @@ if [[ "$JDK_OK" == "1" && -n "${ANDROID_HOME:-}" ]]; then
         else
             fail "build" "build reported success but no APK found under build/outputs/apk/"
         fi
-    else
-        fail "build" "smart-apple-dev build --target android exited non-zero"
     fi
 else
     warn "build" "skipped (JDK=$JDK_OK ANDROID_HOME=${ANDROID_HOME:-unset})"
