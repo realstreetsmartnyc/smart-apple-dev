@@ -220,8 +220,6 @@ target = "ios"
                     ui.hint("Install JDK 17+: sudo apt install openjdk-17-jdk")
                 elif "licenses" in err.lower():
                     ui.hint("Accept Android SDK licenses: yes | sdkmanager --licenses")
-            if result.output:
-                ui.info(f"Last output: {result.output.strip().splitlines()[-1][:200]}")
             sys.exit(1)
 
     @cli.command()

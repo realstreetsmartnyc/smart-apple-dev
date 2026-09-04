@@ -127,10 +127,16 @@ class KotlinBackend:
             hint = self._diagnose_android_failure(stderr or stdout)
             if hint:
                 errors.append(hint)
-            if stderr:
-                errors.append(stderr.strip().splitlines()[-1] if stderr.strip() else "")
-            elif stdout:
-                errors.append(stdout.strip().splitlines()[-1] if stdout.strip() else "")
+            # Surface the last few lines of stderr AND stdout so the failure mode
+            # is visible without re-running the build. Gradle mostly prints to
+            # stdout, so the real error often lives there.
+            tail_lines = []
+            if stderr and stderr.strip():
+                tail_lines.extend(stderr.strip().splitlines()[-5:])
+            if stdout and stdout.strip():
+                tail_lines.extend(stdout.strip().splitlines()[-5:])
+            if tail_lines:
+                errors.append("..." + "\n".join(tail_lines)[-2000:])
         elif artifact is None:
             errors.append(
                 "Gradle build reported success but no APK was found in build/outputs/apk/."
@@ -148,14 +154,32 @@ class KotlinBackend:
     def _diagnose_android_failure(log: str) -> str:
         """Return a short, actionable hint for common Android build errors."""
         low = log.lower()
+        # Real build failures take priority
+        if "build failed" in low:
+            # Extract the "What went wrong" message or the actual error
+            lines = log.splitlines()
+            for i, line in enumerate(lines):
+                if "what went wrong" in line.lower():
+                    # Show next 3 lines after "What went wrong"
+                    snippet = "\n".join(lines[i:i+3]).strip()
+                    if snippet:
+                        return snippet[:300]
+            # Fallback: show lines with FAILURE or ERROR
+            for line in lines:
+                if "failure:" in line.lower() or "error:" in line.lower():
+                    return line.strip()[:200]
+            return "Build failed — see output above for details"
         if "android_sdk_root" in low or "sdk location not found" in low:
             return (
                 "Android SDK not found. Set ANDROID_HOME or ANDROID_SDK_ROOT, "
                 "or run: smart-apple-dev doctor --install"
             )
-        if "jdk" in low and ("version" in low or "toolchain" in low or "tools.jar" in low):
+        # Specific JDK errors (require more context to avoid false positives)
+        if "tools.jar" in low and ("could not find" in low or "please check" in low):
             return "JDK 17+ required for Android Gradle Plugin. Install: apt install openjdk-17-jdk"
-        if "java" in low and ("version" in low or "toolchain" in low or "tools.jar" in low):
+        if "jdk toolchain" in low and ("version" in low or "could not" in low):
+            return "JDK 17+ required for Android Gradle Plugin. Install: apt install openjdk-17-jdk"
+        if ("no matching toolchain" in low or "toolchain discovery" in low) and "java" in low:
             return "JDK 17+ required for Android Gradle Plugin. Install: apt install openjdk-17-jdk"
         if "licen" in low and "android" in low:
             return "Android SDK licenses not accepted. Run: yes | sdkmanager --licenses"
