@@ -25,6 +25,16 @@ def _get_click():
         sys.exit(1)
 
     return click
+def _sanitize_bundle_id(name: str) -> str:
+    """Sanitize a project name into a valid bundle/package identifier.
+
+    Android package names cannot contain hyphens. Apple bundle IDs allow
+    them but tooling is more reliable with all-dots. Replace hyphens with
+    dots so the generated bundle ID works for both Apple and Android.
+    """
+    return name.replace("-", ".")
+
+
 def create_cli():
 
 
@@ -37,17 +47,7 @@ def create_cli():
         """smart-apple-dev: Cross-platform iOS/macOS development toolchain."""
         pass
 
-    def _sanitize_bundle_id(name: str) -> str:
-    """Sanitize a project name into a valid bundle/package identifier.
-
-    Android package names cannot contain hyphens. Apple bundle IDs allow
-    them but tooling is more reliable with all-dots. Replace hyphens with
-    dots so the generated bundle ID works for both Apple and Android.
-    """
-    return name.replace("-", ".")
-
-
-@cli.command()
+    @cli.command()
     @click.argument("name")
     @click.option("--lang", default="swift",
                   type=click.Choice(["swift", "objc", "cpp", "rust", "go", "kotlin"]),
