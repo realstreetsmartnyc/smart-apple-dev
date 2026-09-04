@@ -1,0 +1,23 @@
+; Engine configuration file.
+; This file is required by Godot and tells the engine what to load.
+
+config_version=5
+
+[application]
+
+config/name="{{NAME}}"
+config/description="A {{NAME}} game built with Godot 4"
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.2", "Forward Plus")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+stretch/mode="canvas_items"
+stretch/aspect="expand"
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
