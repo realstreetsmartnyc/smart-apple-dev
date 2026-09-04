@@ -71,3 +71,4 @@ google-services*.json
 
 # Godot editor cache (machine-specific, do not commit)
 templates/*/.godot/
+templates/*.gradle/
