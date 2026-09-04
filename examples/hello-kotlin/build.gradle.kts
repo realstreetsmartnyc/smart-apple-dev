@@ -19,7 +19,9 @@ repositories {
 plugins {
     kotlin("multiplatform") version "1.9.20"
     id("com.android.application")
-    id("com.google.gms.google-services")
+    // Google Services plugin removed by default; opt-in via a Firebase setup
+    // guide when you actually wire up a real Firebase project. CI builds
+    // without Firebase by skipping the plugin and Firebase BoM dependencies.
 }
 
 kotlin {
@@ -81,16 +83,13 @@ android {
 }
 
 dependencies {
-    // Import the Firebase BoM
-    implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
-
-    // Firebase products
-    implementation("com.google.firebase:firebase-analytics")
-    implementation("com.google.firebase:firebase-auth")
-    implementation("com.google.firebase:firebase-firestore")
-    implementation("com.google.firebase:firebase-storage")
-    implementation("com.google.firebase:firebase-messaging")
-    implementation("com.google.firebase:firebase-database")
+    // Firebase is opt-in. To enable, run:
+    //   1. Create a project at https://console.firebase.google.com/
+    //   2. Download google-services.json into the project root
+    //   3. Uncomment the `id("com.google.gms.google-services")` plugin in the
+    //      plugins block above
+    //   4. Uncomment the Firebase BoM + product lines below
+    //   5. Run ./gradlew assembleDebug
 
     // Kotlin Multiplatform dependencies (visible to all source sets)
     "commonMainImplementation"("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")

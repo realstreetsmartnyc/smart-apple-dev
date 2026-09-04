@@ -126,7 +126,7 @@ jobs:
           # real Firebase project. (The plugin would fail with "no matching client"
           # without a real google-services.json from Firebase Console.)
           cd app
-          ./gradlew assembleDebug --no-daemon -x processDebugGoogleServices -x processReleaseGoogleServices
+          ./gradlew assembleDebug --no-daemon
 
       - name: Verify APK artifact
         run: |
