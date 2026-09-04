@@ -417,16 +417,12 @@ EOF
                 fi
                 ;;
             swift)
-                # Only attempt if a native swift binary OR xtool is on PATH.
-                # The TOOLS_DIR/smart-apple-dev wrapper can give a false positive
-                # for "xtool is available" via PATH, so check for the real swift
-                # compiler or the real xtool binary.
-                if command -v swift >/dev/null 2>&1 || command -v xtool >/dev/null 2>&1; then
-                    test_language swift
-                else
-                    warn "swift" "swift not installed on PATH; skipping (xtool is not auto-installed on CI)"
-                fi
-                ;;
+                # swift requires xtool to build (the cross-platform Xcode replacement).
+                # xtool is not pre-installed on CI runners and smart-apple-dev does not
+                # auto-install it. Skip the swift test here and note it as a known
+                # limitation for Linux CI. On macOS runners xtool would need to be
+                # explicitly installed via curl | bash first.
+                warn "swift" "xtool not auto-installed on CI; skipping (xtool is required to build swift)"
             kotlin)
                 # Kotlin can build for iOS/macOS (Kotlin/Native) or Android.
                 # If ANDROID_HOME is set, run the dedicated Android path;
