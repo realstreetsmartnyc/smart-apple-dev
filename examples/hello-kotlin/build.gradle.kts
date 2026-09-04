@@ -54,11 +54,11 @@ kotlin {
 }
 
 android {
-    namespace = "com.example.hello-kotlin"
+    namespace = "com.example.hello.kotlin"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.hello-kotlin"
+        applicationId = "com.example.hello.kotlin"
         minSdk = 21
         targetSdk = 34
         versionCode = 1

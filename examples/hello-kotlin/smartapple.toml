@@ -1,7 +1,7 @@
 [project]
 name = "hello-kotlin"
 language = "kotlin"
-bundle_id = "com.example.hello-kotlin"
+bundle_id = "com.example.hello.kotlin"
 version = "0.1.0"
 build_system = "makefile"
 min_os = "15.0"

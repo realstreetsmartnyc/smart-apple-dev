@@ -37,7 +37,17 @@ def create_cli():
         """smart-apple-dev: Cross-platform iOS/macOS development toolchain."""
         pass
 
-    @cli.command()
+    def _sanitize_bundle_id(name: str) -> str:
+    """Sanitize a project name into a valid bundle/package identifier.
+
+    Android package names cannot contain hyphens. Apple bundle IDs allow
+    them but tooling is more reliable with all-dots. Replace hyphens with
+    dots so the generated bundle ID works for both Apple and Android.
+    """
+    return name.replace("-", ".")
+
+
+@cli.command()
     @click.argument("name")
     @click.option("--lang", default="swift",
                   type=click.Choice(["swift", "objc", "cpp", "rust", "go", "kotlin"]),
@@ -53,7 +63,7 @@ def create_cli():
 
         # Write config
         config_path = project_dir / "smartapple.toml"
-        bundle = bundle_id or f"com.example.{name}"
+        bundle = bundle_id or f"com.example.{_sanitize_bundle_id(name)}"
         config_content = f"""[project]
 name = "{name}"
 language = "{lang}"
