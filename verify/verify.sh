@@ -423,6 +423,7 @@ EOF
                 # limitation for Linux CI. On macOS runners xtool would need to be
                 # explicitly installed via curl | bash first.
                 warn "swift" "xtool not auto-installed on CI; skipping (xtool is required to build swift)"
+                ;;
             kotlin)
                 # Kotlin can build for iOS/macOS (Kotlin/Native) or Android.
                 # If ANDROID_HOME is set, run the dedicated Android path;
