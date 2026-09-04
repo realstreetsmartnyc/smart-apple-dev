@@ -87,13 +87,16 @@ PLATFORM=$(detect_platform)
 step "Platform: $PLATFORM"
 
 # ---------- Step 1: JDK ----------
-# Auto-detect JAVA_HOME if not set (needed for gradle subprocess)
+# Auto-detect JAVA_HOME from common Linux JDK install paths if not already set.
+# This lets verify-android.sh work on local machines that have OpenJDK 17 installed
+# via apt but don't have JAVA_HOME exported.
 if [[ -z "${JAVA_HOME:-}" ]]; then
-    if [[ -x "/usr/lib/jvm/java-17-openjdk-amd64/bin/java" ]]; then
-        export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
-    elif [[ -x "/usr/lib/jvm/java-17-openjdk-amd64/bin/java" ]]; then
-        export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)" 2>/dev/null || echo "")")"
-    fi
+    for JDK_PATH in /usr/lib/jvm/java-17-openjdk-amd64                     /usr/lib/jvm/java-17-amazon-corretto                     /usr/lib/jvm/default; do
+        if [[ -x "$JDK_PATH/bin/java" ]]; then
+            export JAVA_HOME="$JDK_PATH"
+            break
+        fi
+    done
 fi
 
 step "1/6 JDK 17+"
