@@ -42,7 +42,7 @@ def create_cli():
     click = _get_click()
 
     @click.group()
-    @click.version_option(version="1.0.1")
+    @click.version_option(version="1.0.2")
     def cli():
         """smart-apple-dev: Cross-platform iOS/macOS development toolchain."""
         pass
@@ -68,7 +68,7 @@ def create_cli():
 name = "{name}"
 language = "{lang}"
 bundle_id = "{bundle}"
-version = "0.1.0"
+version = "1.0.2"
 build_system = "swiftpm"
 min_os = "15.0"
 target = "ios"
