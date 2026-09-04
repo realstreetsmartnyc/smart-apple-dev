@@ -157,7 +157,12 @@ class RustBackend:
         )
 
     def ensure_target(self, target_triple: str) -> bool:
-        """Ensure the Rust target is installed."""
+        """Ensure the Rust target is installed.
+
+        First checks if the target is already installed. If not, attempts
+        to install it via `rustup target add`. This makes `build` Just Work
+        for a fresh user without requiring a separate setup step.
+        """
         rustup = check_tool("rustup")
         if rustup is None:
             return False
@@ -168,4 +173,21 @@ class RustBackend:
         if exit_code != 0:
             return False
         installed = {t.strip() for t in stdout.strip().split("\n") if t.strip()}
-        return target_triple in installed
+        if target_triple in installed:
+            return True
+        # Not installed — try to add it
+        print(f"  rustup target add {target_triple}  (auto-installing)")
+        add_code, _, add_err = run_cmd(
+            [rustup, "target", "add", "--toolchain", "stable", target_triple],
+            timeout=300,
+        )
+        if add_code != 0:
+            # Fall back to non-pinned invocation
+            add_code, _, add_err = run_cmd(
+                [rustup, "target", "add", target_triple],
+                timeout=300,
+            )
+        if add_code != 0:
+            print(f"  rustup target add failed: {add_err.splitlines()[-1] if add_err else 'unknown'}")
+            return False
+        return True
