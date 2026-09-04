@@ -143,7 +143,12 @@ target = "ios"
         def copy_template(src: Path, dst: Path) -> None:
             if src.is_file():
                 dst.parent.mkdir(parents=True, exist_ok=True)
-                dst.write_text(render(src.read_text()))
+                try:
+                    dst.write_text(render(src.read_text()))
+                except UnicodeDecodeError:
+                    # Binary file (e.g. gradle-wrapper.jar) — copy as bytes.
+                    import shutil as _shutil
+                    _shutil.copy2(src, dst)
             elif src.is_dir():
                 dst.mkdir(parents=True, exist_ok=True)
                 for child in src.iterdir():
