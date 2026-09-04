@@ -76,10 +76,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-
-    // Point Gradle at the KMP-aware common source so `assembleDebug` picks up
-    // src/commonMain/kotlin/ out of the box.
-    sourceSets["main"].java.srcDirs("src/commonMain/kotlin")
 }
 
 dependencies {
