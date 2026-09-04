@@ -32,7 +32,7 @@ def create_cli():
     click = _get_click()
 
     @click.group()
-    @click.version_option(version="1.0.0")
+    @click.version_option(version="1.0.1")
     def cli():
         """smart-apple-dev: Cross-platform iOS/macOS development toolchain."""
         pass

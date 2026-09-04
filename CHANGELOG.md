@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-09-03
+
+### Added
+- **`smart-apple-dev notarize`**: macOS notarization helper. On macOS uses
+  `xcrun notarytool` + `xcrun stapler`; on Linux/Windows requires `--remote
+  user@host` to SSH into a Mac and notarize there
+- **`smart-apple-dev xtool` subcommand group** (`status`, `install`, `uninstall`,
+  `verify`): manage xtool Swift environment on Linux/Windows (Swift toolchain
+  download + xtool build from source, ~600 MB + ~5 min)
+- **`doctor --install`** now auto-installs `clang/lld/cmake` and
+  `libimobiledevice` via `apt-get` on Debian/Ubuntu, and Godot export
+  templates (~1 GB download) for the Godot game path
+- **`doctor --json`**: machine-readable JSON output for agent tooling
+- **`smart-apple-dev new`**: alias for `init` that scaffolds a project
+  and prints next steps (build, sign, install, notarize)
+- **`templates/godot/`**: real Godot 4 project template (project.godot,
+  Main.tscn, Main.gd, export_presets.cfg) — replaces the old toml-only stub
+- **`examples/hello-swiftui/`**: full SwiftUI app example with Combine,
+  CoreData, CoreLocation, and notifications
+
+### Changed
+- **Rust backend** auto-adds Apple targets on first build: runs
+  `rustup target add --toolchain stable <triple>` instead of failing
+- **CI workflow** adds a `verify` job that runs `./verify/verify.sh --local`
+  on every PR, and an `android` job that builds the Kotlin template APK
+  via Gradle + verifies `AndroidManifest.xml`. `publish` now requires
+  both `test` and `verify` to pass
+- **`chore(templates)`**: deleted empty `templates/swiftui/` and
+  `templates/unity/` stubs that produced broken projects
+
+### Fixed
+- `verify.sh` SCRIPT_DIR fallback for the kotlin/Android path so it
+  resolves correctly when sourced
+- `.gitignore` excludes `templates/*/.godot/` editor cache
+
+[1.0.1]: https://github.com/realstreetsmartnyc/smart-apple-dev/releases/tag/v1.0.1
+
 ## [1.0.0] - 2026-09-03
 
 ### Added
