@@ -1,8 +1,0 @@
-[project]
-name = "{{NAME}}"
-language = "unity"
-bundle_id = "{{BUNDLE_ID}}"
-version = "0.1.0"
-build_system = "makefile"
-min_os = "15.0"
-target = "macos"
