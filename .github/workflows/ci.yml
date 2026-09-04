@@ -209,7 +209,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install build
       - run: python -m build
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
-          trusted-publishing: never
+      - name: Install twine
+        run: pip install twine
+
+      - name: Upload to PyPI via twine
+        env:
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+          TWINE_USERNAME: __token__
+        run: twine upload --skip-existing dist/*
