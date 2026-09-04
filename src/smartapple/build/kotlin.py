@@ -89,11 +89,13 @@ class KotlinBackend:
         gradle_task = "assembleRelease" if release else "assembleDebug"
         cmd = ["./gradlew", gradle_task]
 
-        # Forward ANDROID_HOME / ANDROID_SDK_ROOT if set
+        # Forward JAVA_HOME (for gradle), ANDROID_HOME / ANDROID_SDK_ROOT (for SDK).
+        # Without JAVA_HOME, gradlew may not find the right JDK on CI runners where
+        # JAVA_HOME is set in the shell but not inherited by subprocesses.
         env = {}
-        for sdk_env in ("ANDROID_HOME", "ANDROID_SDK_ROOT"):
-            if os.environ.get(sdk_env):
-                env[sdk_env] = os.environ[sdk_env]
+        for env_var in ("JAVA_HOME", "ANDROID_HOME", "ANDROID_SDK_ROOT"):
+            if os.environ.get(env_var):
+                env[env_var] = os.environ[env_var]
 
         exit_code, stdout, stderr = run_cmd(
             cmd, cwd=project_dir, env=env, timeout=900,
