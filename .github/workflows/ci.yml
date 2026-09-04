@@ -112,19 +112,26 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Build Kotlin template APK (debug)
+      - name: Render kotlin template + build APK
         env:
           ANDROID_HOME: ${{ github.workspace }}/.android-sdk
           ANDROID_SDK_ROOT: ${{ github.workspace }}/.android-sdk
         run: |
+          set -euo pipefail
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-          cd templates/kotlin
-          ./gradlew assembleDebug --no-daemon
+          # Render the kotlin template via the CLI (substitutes {{BUNDLE_ID}} etc).
+          cd "$GITHUB_WORKSPACE"
+          smart-apple-dev init app --lang kotlin
+          # Build via gradle; skip Firebase's GoogleServices task since we have no
+          # real Firebase project. (The plugin would fail with "no matching client"
+          # without a real google-services.json from Firebase Console.)
+          cd app
+          ./gradlew assembleDebug --no-daemon -x processDebugGoogleServices -x processReleaseGoogleServices
 
       - name: Verify APK artifact
         run: |
           set -euo pipefail
-          apk=$(find templates/kotlin/build/outputs/apk -name '*.apk' | head -n 1)
+          apk=$(find app/build/outputs/apk -name '*.apk' | head -n 1)
           if [ -z "$apk" ]; then
             echo "::error::No APK was produced by assembleDebug"
             exit 1

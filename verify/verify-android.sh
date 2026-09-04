@@ -182,6 +182,41 @@ info "Workdir: $TMP_BUILD"
 cp -r "$REPO_ROOT/examples/hello-kotlin" "$TMP_BUILD/hello-kotlin"
 cd "$TMP_BUILD/hello-kotlin"
 
+# Replace the placeholder google-services.json with a stub that satisfies the
+# Firebase plugin's package_name check. Without this, assembleDebug fails with
+# "No matching client found for package name 'com.example.hello-kotlin'".
+# We use a dummy API key — CI never contacts Firebase.
+cat > google-services.json <<'JSON'
+{
+  "project_info": {
+    "project_number": "123456789012",
+    "project_id": "smart-apple-dev-ci",
+    "storage_bucket": "smart-apple-dev-ci.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123456789012:android:abcdef1234567890",
+        "android_client_info": {
+          "package_name": "com.example.hello-kotlin"
+        }
+      },
+      "api_key": [
+        {
+          "current_key": "AIzaSyDummyKeyForCIOnly000000000000000000"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
+JSON
+
 # Make gradlew executable (templates may not have it)
 if [[ -f "./gradlew" ]]; then
     chmod +x ./gradlew
