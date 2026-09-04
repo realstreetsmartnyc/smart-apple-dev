@@ -118,7 +118,7 @@ class TestKotlinTemplateStructure:
         assert "iosArm64" in text
 
     def test_manifest_exists(self):
-        manifest = TEMPLATES / "kotlin" / "src" / "main" / "AndroidManifest.xml"
+        manifest = TEMPLATES / "kotlin" / "src" / "androidMain" / "AndroidManifest.xml"
         assert manifest.exists(), f"missing {manifest}"
         text = manifest.read_text()
         assert "<activity" in text
