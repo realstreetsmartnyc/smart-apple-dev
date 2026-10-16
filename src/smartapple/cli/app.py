@@ -252,7 +252,8 @@ target = "ios"
         from ..sign import package_ipa
         root = find_project_root()
         if root is None:
-            print("Error: No smartapple.toml found.")
+            ui.error("No smartapple.toml found. Run 'smart-apple-dev init' first.")
+            ui.hint("Run `smart-apple-dev init <name>` to create a new project.")
             sys.exit(1)
 
         config = load_config(root)
@@ -261,7 +262,9 @@ target = "ios"
         result = orchestrator.build(config, target=target)
 
         if not result.success or result.artifact is None:
-            print("Error: Build failed, cannot sign.")
+            ui.error("Build failed, cannot sign.")
+            for err in result.errors:
+                ui.error(f"  {err}")
             sys.exit(1)
 
         profile_path = Path(profile) if profile else None
@@ -291,10 +294,22 @@ target = "ios"
             for w in sign_result.warnings:
                 ui.warning(f"  {w}")
 
+        ipa_path = None
         if to_ipa:
             with ui.spinner("Packaging .ipa"):
                 ipa_path = package_ipa(sign_result.artifact_path)
             ui.success(f"IPA: {ipa_path} ({ipa_path.stat().st_size:,} bytes)")
+
+        summary_rows = [
+            ("Target", target),
+            ("Mode", mode),
+            ("Artifact", str(sign_result.artifact_path)),
+        ]
+        if identity:
+            summary_rows.append(("Identity", identity))
+        if to_ipa and ipa_path:
+            summary_rows.append(("IPA", str(ipa_path)))
+        ui.summary(summary_rows)
 
     @cli.command()
     @click.option("--artifact", "-a", "artifact_path", default=None,
