@@ -33,8 +33,15 @@ class TestWantColor:
         monkeypatch.setenv("SMART_APPLE_DEV_NO_COLOR", "1")
         assert ui._want_color() is False
 
+    def test_standard_no_color_env(self, monkeypatch):
+        monkeypatch.delenv("SMART_APPLE_DEV_NO_COLOR", raising=False)
+        monkeypatch.setenv("NO_COLOR", "1")
+        monkeypatch.setattr(ui, "_CONSOLE_SINGLETON", None)
+        assert ui._want_color() is False
+
     def test_force_color_env(self, monkeypatch):
         monkeypatch.setenv("SMART_APPLE_DEV_NO_COLOR", "0")
+        monkeypatch.delenv("NO_COLOR", raising=False)
         monkeypatch.setenv("SMART_APPLE_DEV_FORCE_COLOR", "1")
         # Reset cached singleton so the new env vars take effect
         monkeypatch.setattr(ui, "_CONSOLE_SINGLETON", None)

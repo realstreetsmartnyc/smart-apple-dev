@@ -53,7 +53,7 @@ except Exception:  # pragma: no cover - rich is a hard dep, but stay safe
 #   SMART_APPLE_DEV_FORCE_COLOR=1 -> always color
 # Defaults: color when stderr/stdout is a TTY.
 def _want_color() -> bool:
-    if os.environ.get("SMART_APPLE_DEV_NO_COLOR") == "1":
+    if os.environ.get("SMART_APPLE_DEV_NO_COLOR") == "1" or "NO_COLOR" in os.environ:
         return False
     if os.environ.get("SMART_APPLE_DEV_FORCE_COLOR") == "1":
         return True
