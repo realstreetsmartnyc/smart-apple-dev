@@ -30,8 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .core.config import get_tool_dir, ensure_dirs, get_platform
-
+from .core.config import ensure_dirs, get_platform, get_tool_dir
 
 # --- Configuration ---
 
@@ -134,11 +133,7 @@ def _xtool_bin() -> Path | None:
 
 
 def _is_on_path(name: str) -> bool:
-    for d in os.environ.get("PATH", "").split(":"):
-        c = Path(d) / name
-        if c.exists() and os.access(c, os.X_OK):
-            return True
-    return False
+    return shutil.which(name) is not None
 
 
 def xtool_status() -> XtoolStatus:
@@ -163,18 +158,16 @@ def xtool_status() -> XtoolStatus:
             s.notes.append(f"swift --version failed: {e}")
     else:
         # Check if Swift is already on PATH (e.g. user installed via apt)
-        for d in os.environ.get("PATH", "").split(":"):
-            c = Path(d) / "swift"
-            if c.exists() and os.access(c, os.X_OK):
-                s.swift_installed = True
-                s.swift_path = str(c)
-                try:
-                    r = subprocess.run([str(c), "--version"],
-                                       capture_output=True, text=True, timeout=30)
-                    s.swift_version = (r.stdout or r.stderr).strip().splitlines()[0]
-                except Exception:
-                    pass
-                break
+        swift_on_path = shutil.which("swift")
+        if swift_on_path:
+            s.swift_installed = True
+            s.swift_path = swift_on_path
+            try:
+                r = subprocess.run([swift_on_path, "--version"],
+                                   capture_output=True, text=True, timeout=30)
+                s.swift_version = (r.stdout or r.stderr).strip().splitlines()[0]
+            except Exception:
+                pass
         if not s.swift_installed:
             s.notes.append("Swift for Linux not installed; run `smart-apple-dev xtool install`")
 
@@ -314,7 +307,7 @@ def _build_xtool(swift_bin: Path, xd: Path) -> Path:
             f"xtool needs Swift 6.1+. Installed: {ver_str}. "
             f"Run `smart-apple-dev xtool install --redownload` to get a newer Swift."
         )
-    
+
     pkg = xd / "Package.swift"
     if pkg.exists():
         text = pkg.read_text()
@@ -337,8 +330,8 @@ def _build_xtool(swift_bin: Path, xd: Path) -> Path:
         if n > 0:
             print("  patched Package.swift to use swift-subprocess " + subproc_version + " (" + str(n) + " replacement" + ("s" if n != 1 else "") + ")")
             pkg.write_text(text)
-    
-    print(f"  building xtool (this takes ~5 minutes)...")
+
+    print("  building xtool (this takes ~5 minutes)...")
     cmd = [
         str(swift_bin), "build",
         "--product", XTOOL_BUILD_PRODUCT,
