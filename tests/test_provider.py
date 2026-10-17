@@ -64,10 +64,12 @@ def test_local_provider_capabilities():
 
 def test_local_provider_is_available():
     """Local provider is available if clang and lld exist."""
+    from unittest.mock import patch
     p = LocalProvider()
-    available, reason = p.is_available()
-    # On this system, clang and lld are both present
-    assert available is True, f"Should be available, got: {reason}"
+    with patch("smartapple.build.provider.check_tool", return_value=Path("/usr/bin/clang")):
+        with patch("smartapple.build.cpp._find_mach_o_linker", return_value=Path("/usr/bin/ld64.lld")):
+            available, reason = p.is_available()
+            assert available is True, f"Should be available, got: {reason}"
 
 
 def test_get_provider_singleton():
