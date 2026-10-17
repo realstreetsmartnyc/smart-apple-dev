@@ -126,12 +126,24 @@ class CSharpBackend:
     def _find_dotnet_artifact(self, project_dir: Path, csproj_path: Path,
                                name: str, target: str) -> Path | None:
         """Find the built .dll or executable."""
-        config = "Debug" if "Debug" else "Release"
-        for config in ["Debug", "Release"]:
-            for pattern in [f"{name}.dll", f"{name}.app", f"{name}.ipa"]:
-                for found in project_dir.rglob(pattern):
-                    return found
-        return None
+        patterns = {
+            f"{name}.dll": 0,
+            f"{name}.app": 1,
+            f"{name}.ipa": 2,
+        }
+        candidates = []
+        for p in project_dir.rglob("*"):
+            if p.name in patterns:
+                p_str = str(p)
+                config_score = 0 if "Debug" in p_str else (1 if "Release" in p_str else 2)
+                pattern_score = patterns[p.name]
+                candidates.append((pattern_score, config_score, p))
+
+        if not candidates:
+            return None
+
+        candidates.sort(key=lambda x: (x[0], x[1]))
+        return candidates[0][2]
 
 
 # Factory function for orchestrator
