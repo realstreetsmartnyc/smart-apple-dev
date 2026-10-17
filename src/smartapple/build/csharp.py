@@ -54,7 +54,9 @@ class CSharpBackend:
         # Check for MAUI
         ns = {"msbuild": "http://schemas.microsoft.com/developer/msbuild/2003"}
         is_maui = any(
-            "maui" in (elem.text or "").lower()
+            "maui" in elem.tag.lower()
+            or "maui" in (elem.text or "").lower()
+            or any("maui" in v.lower() for v in elem.attrib.values())
             for elem in root.iter()
         )
 
