@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
 
-from .orchestrator import BuildResult, run_cmd
 from ..core.config import ProjectConfig, check_tool
+from .orchestrator import BuildResult, run_cmd
 
 
 class ObjCBackend:
@@ -156,7 +155,7 @@ class ObjCBackend:
 
     def _get_sdk_path(self, target: str) -> str:
         """Get the SDK path for the target."""
-        from ..core.sdk import get_sdk, SdkError
+        from ..core.sdk import SdkError, get_sdk
         platform_map = {
             "ios": "iphoneos",
             "ios-simulator": "iphonesimulator",
@@ -172,12 +171,23 @@ class ObjCBackend:
 
     def _find_artifact(self, project_dir: Path, name: str) -> Path | None:
         """Find the built artifact."""
+        extensions = [".ipa", ".app", ".framework"]
         for build_dir in [project_dir / ".build", project_dir / "build"]:
             if not build_dir.exists():
                 continue
-            for ext in [".ipa", ".app", ".framework"]:
-                for artifact in build_dir.rglob(f"*{ext}"):
-                    return artifact
+            candidates: dict[str, Path] = {}
+            for root, dirs, files in os.walk(build_dir):
+                root_path = Path(root)
+                for entry in files + dirs:
+                    for ext in extensions:
+                        if entry.endswith(ext):
+                            if ext not in candidates:
+                                candidates[ext] = root_path / entry
+                                if ext == ".ipa":
+                                    return candidates[ext]
+            for ext in extensions:
+                if ext in candidates:
+                    return candidates[ext]
         return None
 
     def is_available(self) -> bool:
