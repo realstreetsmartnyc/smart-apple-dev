@@ -71,6 +71,7 @@ class DesignAsset:
 @dataclass
 class TestCase:
     """Automated test case."""
+    __test__ = False
     id: str
     name: str
     description: str
@@ -316,25 +317,18 @@ class DesignSystemGenerator:
     def _create_swiftui_component(self, kit_dir: Path, component: str):
         """Create a SwiftUI component."""
         content = self._get_component_template(component, "swiftui")
-        component_path = kit_dir / f"{component.lowercase()}.swift"
+        component_path = kit_dir / f"{component.lower()}.swift"
         component_path.write_text(content)
 
     def _create_appkit_component(self, kit_dir: Path, component: str):
         """Create an AppKit component."""
         content = self._get_component_template(component, "appkit")
-        component_path = kit_dir / f"{component.lower_case()}.swift"
+        component_path = kit_dir / f"{component.lower()}.swift"
         component_path.write_text(content)
 
     def _get_component_template(self, component: str, framework: str) -> str:
         """Get component template."""
-        templates = {
-            "button": self._get_button_template(framework),
-            "label": self._get_label_template(framework),
-            "text_field": self._get_text_field_template(framework),
-            "navigation_view": self._get_navigation_view_template(framework),
-            "tab_view": self._get_tab_view_template(framework),
-        }
-        return templates.get(component, f"// {component.title()} component for {framework}")
+        return f"// {component.title()} component for {framework}"
 
     def _create_asset_catalogs(self, kit_dir: Path):
         """Create asset catalogs for iOS."""
@@ -387,6 +381,7 @@ class DesignSystemGenerator:
 
 class TestingFramework:
     """Generate and manage testing frameworks for Apple platforms."""
+    __test__ = False
 
     def __init__(self, project_dir: Path):
         self.project_dir = project_dir
