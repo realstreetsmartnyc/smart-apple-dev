@@ -101,6 +101,8 @@ class SSHProvider(BuildProvider):
 
     def _scp_upload(self, client: paramiko.SSHClient, local_path: Path, remote_path: str):
         """Upload file or directory via SCP."""
+        from pathlib import PurePosixPath
+
         sftp = client.open_sftp()
         try:
             if local_path.is_file():
@@ -112,9 +114,22 @@ class SSHProvider(BuildProvider):
                 except FileNotFoundError:
                     sftp.mkdir(remote_path)
                 # Upload contents
+                remote_base = PurePosixPath(remote_path)
                 for item in local_path.rglob("*"):
                     if item.is_file():
-                        remote_item = remote_path / item.relative_to(local_path)
+                        remote_item = remote_base / item.relative_to(local_path)
+                        remote_parent = str(remote_item.parent)
+                        try:
+                            sftp.stat(remote_parent)
+                        except FileNotFoundError:
+                            parts = remote_item.parent.parts
+                            curr = ""
+                            for p in parts:
+                                curr = f"{curr}/{p}" if curr else p
+                                try:
+                                    sftp.stat(curr)
+                                except FileNotFoundError:
+                                    sftp.mkdir(curr)
                         sftp.put(str(item), str(remote_item))
         finally:
             sftp.close()
@@ -152,14 +167,14 @@ class SSHProvider(BuildProvider):
         start = time.perf_counter()
 
         try:
-            client = self._ssh_client()
-        except SSHException as e:
-            return ProviderResult(
-                success=False,
-                errors=[f"SSH connection failed: {e}"],
-            )
+            try:
+                client = self._ssh_client()
+            except SSHException as e:
+                return ProviderResult(
+                    success=False,
+                    errors=[f"SSH connection failed: {e}"],
+                )
 
-        try:
             # Create temporary directory on remote
             stdin, stdout, stderr = client.exec_command("mktemp -d")
             remote_work_dir = stdout.read().decode().strip()
