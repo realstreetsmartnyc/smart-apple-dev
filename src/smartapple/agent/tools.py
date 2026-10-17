@@ -240,8 +240,9 @@ def tool_run_shell(args: dict) -> str:
         return f"Error: Command not allowed: {reason}"
 
     try:
+        cmd_args = shlex.split(cmd)
         result = subprocess.run(
-            cmd, shell=True, cwd=cwd,
+            cmd_args, cwd=cwd,
             capture_output=True, text=True, timeout=60,
         )
         out = []
