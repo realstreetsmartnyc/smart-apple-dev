@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 try:
     import tomllib
 except ImportError:
     import tomli as tomllib
 
-import yaml
 
 
 @dataclass
@@ -30,7 +29,7 @@ class ProjectConfig:
     extra: dict = field(default_factory=dict)
 
     @classmethod
-    def from_file(cls, path: Path) -> "ProjectConfig":
+    def from_file(cls, path: Path) -> ProjectConfig:
         if not path.exists():
             raise FileNotFoundError(f"Config not found: {path}")
         with open(path, "rb") as f:
@@ -38,7 +37,7 @@ class ProjectConfig:
         return cls.from_dict(data)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ProjectConfig":
+    def from_dict(cls, data: dict) -> ProjectConfig:
         project = data.get("project", {})
         return cls(
             name=project.get("name", "my-app"),
@@ -130,11 +129,7 @@ def check_tool(name: str) -> str | None:
     if local.exists() and os.access(local, os.X_OK):
         return str(local)
     # Check PATH
-    for p in os.environ.get("PATH", "").split(":"):
-        candidate = Path(p) / name
-        if candidate.exists() and os.access(candidate, os.X_OK):
-            return str(candidate)
-    return None
+    return shutil.which(name)
 
 
 def get_platform() -> str:
