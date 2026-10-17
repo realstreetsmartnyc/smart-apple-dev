@@ -21,6 +21,7 @@ class BuildResult:
     artifact: Path | None = None
     errors: list[str] = field(default_factory=list)
     language: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -29,6 +30,7 @@ class BuildResult:
             "artifact": str(self.artifact) if self.artifact else None,
             "errors": self.errors,
             "language": self.language,
+            "metadata": self.metadata,
         }
 
 
