@@ -3,21 +3,16 @@
 from __future__ import annotations
 
 import os
-import shutil
-import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 try:
     import paramiko
 except ImportError:
     paramiko = None  # type: ignore
 
-from .provider import BuildProvider, ProviderCapabilities, ProviderResult
 from ..core.config import ProjectConfig
-from ..core.sdk import list_installed_sdks
-from ..build.orchestrator import BuildOrchestrator
+from .provider import BuildProvider, ProviderCapabilities, ProviderResult
 
 
 @dataclass
@@ -147,6 +142,7 @@ class SSHProvider(BuildProvider):
             )
 
         import time
+
         from paramiko import SSHException
 
         start = time.perf_counter()
@@ -161,7 +157,7 @@ class SSHProvider(BuildProvider):
 
         try:
             # Create temporary directory on remote
-            stdin, stdout, stderr = client.exec_command("mktemp -d")
+            _stdin, stdout, stderr = client.exec_command("mktemp -d")
             remote_work_dir = stdout.read().decode().strip()
             if not remote_work_dir:
                 return ProviderResult(
@@ -178,7 +174,7 @@ class SSHProvider(BuildProvider):
                 if release:
                     build_cmd += " --release"
 
-                stdin, stdout, stderr = client.exec_command(build_cmd, timeout=600)
+                _stdin, stdout, stderr = client.exec_command(build_cmd, timeout=600)
                 exit_status = stdout.channel.recv_exit_status()
                 stdout_data = stdout.read().decode()
                 stderr_data = stderr.read().decode()
@@ -200,15 +196,27 @@ class SSHProvider(BuildProvider):
                 # Try to download the entire build directory
                 self._scp_download(client, remote_build_dir, local_artifact_dir)
 
-                # Find the actual artifact (simple heuristic)
-                artifact = None
-                for ext in [".app", ".ipa"]:
-                    for file in local_artifact_dir.rglob(f"*{ext}"):
-                        if file.is_file() or (ext == ".app" and file.is_dir()):
-                            artifact = file
+                # Find the actual artifact in a single directory walk
+                app_artifact = None
+                ipa_artifact = None
+                for root, dirs, files in os.walk(local_artifact_dir):
+                    root_path = Path(root)
+                    for d in dirs:
+                        if d.endswith(".app"):
+                            app_artifact = root_path / d
                             break
-                    if artifact:
+                    if app_artifact:
                         break
+                    for f in files:
+                        if f.endswith(".app"):
+                            app_artifact = root_path / f
+                            break
+                        elif f.endswith(".ipa") and ipa_artifact is None:
+                            ipa_artifact = root_path / f
+                    if app_artifact:
+                        break
+
+                artifact = app_artifact or ipa_artifact
 
                 duration = time.perf_counter() - start
 
