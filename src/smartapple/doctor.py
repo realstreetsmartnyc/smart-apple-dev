@@ -7,6 +7,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -342,33 +343,41 @@ def _is_apt_system() -> bool:
 def install_apt_pkgs(pkgs: list[str]) -> bool:
     """Install packages via apt-get. Returns True on success.
     
-    Used as a building block for the per-tool install functions. We don't
-    shell out to `apt` directly because it needs sudo and we want a
-    consistent code path.
+    Used as a building block for the per-tool install functions. Exception-safe and
+    handles non-zero exit codes or missing sudo permissions gracefully.
     """
     if not _is_apt_system():
         print(f"    not an apt system; cannot install {pkgs}")
         return False
     # Refresh package cache (best-effort, non-fatal)
-    subprocess.run(
-        ["sudo", "-n", "apt-get", "update", "-qq"],
-        capture_output=True, text=True, timeout=120,
-    )
-    r = subprocess.run(
-        ["sudo", "-n", "apt-get", "install", "-y", "-qq"] + pkgs,
-        capture_output=True, text=True, timeout=600,
-    )
-    if r.returncode != 0:
-        # Try without sudo (some distros let user install without)
+    try:
+        subprocess.run(
+            ["sudo", "-n", "apt-get", "update", "-qq"],
+            capture_output=True, text=True, timeout=120,
+        )
+    except Exception:
+        pass
+
+    try:
         r = subprocess.run(
-            ["apt-get", "install", "-y", "-qq"] + pkgs,
+            ["sudo", "-n", "apt-get", "install", "-y", "-qq"] + pkgs,
             capture_output=True, text=True, timeout=600,
         )
-    if r.returncode != 0:
-        print(f"    apt install failed: {r.stderr.splitlines()[-1] if r.stderr else 'unknown'}")
+        if r.returncode != 0:
+            # Try without sudo (some environments/distros allow user install)
+            r = subprocess.run(
+                ["apt-get", "install", "-y", "-qq"] + pkgs,
+                capture_output=True, text=True, timeout=600,
+            )
+        if r.returncode != 0:
+            err_line = r.stderr.splitlines()[-1] if r.stderr and r.stderr.splitlines() else f"exit code {r.returncode}"
+            print(f"    apt install failed: {err_line}")
+            return False
+        print(f"    installed: {', '.join(pkgs)}")
+        return True
+    except Exception as e:
+        print(f"    apt install failed: {e}")
         return False
-    print(f"    installed: {', '.join(pkgs)}")
-    return True
 
 
 def install_clang_via_apt() -> bool:

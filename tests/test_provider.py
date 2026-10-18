@@ -63,11 +63,13 @@ def test_local_provider_capabilities():
 
 
 def test_local_provider_is_available():
-    """Local provider is available if clang and lld exist."""
+    """Local provider availability depends on clang and Mach-O linker presence."""
+    from smartapple.core.config import check_tool
+    from smartapple.build.cpp import _find_mach_o_linker
+    expected = check_tool("clang") is not None and _find_mach_o_linker() is not None
     p = LocalProvider()
     available, reason = p.is_available()
-    # On this system, clang and lld are both present
-    assert available is True, f"Should be available, got: {reason}"
+    assert available is expected, f"Expected available={expected}, got {available}: {reason}"
 
 
 def test_get_provider_singleton():
